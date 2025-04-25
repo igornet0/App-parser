@@ -1,0 +1,9 @@
+Dockerfile
+docker-compose.yml
+poetry.lock
+
+**/*
+!pyproject.toml
+!backend/
+!core/
+!settings/
