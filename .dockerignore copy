@@ -1,0 +1,10 @@
+Dockerfile
+docker-compose.yml
+poetry.lock
+
+**/*
+!pyproject.toml
+!backend/
+!core/
+!settings/
+!data/coins_list.csv
