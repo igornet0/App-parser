@@ -1,5 +1,0 @@
-
-DATABASE_URL=postgresql+asyncpg://admin:secret@db:5432/usersdb
-
-PYTHONUNBUFFERED=1
-PYTHONDONTWRITEBYTECODE=1

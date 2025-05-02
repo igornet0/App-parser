@@ -1,5 +1,13 @@
 prod.env
 
+.vscode
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
