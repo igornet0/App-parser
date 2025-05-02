@@ -2,12 +2,12 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:13
-    env_file: ./settings/.prod  
+    image: postgres:latest
+    env_file: ./settings/prod.env
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: usersdb
+      POSTGRES_USER: client_db
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: db_trade
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -23,17 +23,17 @@ services:
     depends_on:
       - db
 
-  backend:
+  fastapi:
     build: .
-    env_file: ./settings/.prod
+    env_file: ./settings/prod.env
     ports:
       - "8000:8000"
     depends_on:
       - db
 
-  parser_kucoin:
-    build: backend/parser_kucoin/
-    env_file: ./settings/.prod
+  parser:
+    build: .
+    env_file: ./settings/prod.env
     ports:
       - "8001:8001"
     depends_on:

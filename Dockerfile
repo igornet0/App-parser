@@ -28,7 +28,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
 # Копируем настройки
-COPY ./settings/.prod /app/settings/.prod
+COPY ./settings/prod.env /app/settings/prod.env
 
 # Порт приложения
 EXPOSE 8000

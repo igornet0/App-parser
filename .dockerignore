@@ -7,3 +7,4 @@ poetry.lock
 !backend/
 !core/
 !settings/
+!data/coins_list.csv

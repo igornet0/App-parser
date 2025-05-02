@@ -14,6 +14,13 @@ class AppBaseConfig:
     env_nested_delimiter="__"
     extra = "ignore"
 
+class RunConfig(BaseSettings):
+    model_config = SettingsConfigDict(**AppBaseConfig.__dict__, env_prefix="RUN_")
+    
+    host: str = Field(default="localhost")
+    port: int = Field(8000)
+    reload: bool = Field(default=False)
+
 class LoggingConfig(BaseSettings):
     
     model_config = SettingsConfigDict(**AppBaseConfig.__dict__, 
@@ -28,14 +35,47 @@ class LoggingConfig(BaseSettings):
     def log_level(self) -> int:
         return getattr(logging, self.level)
 
+class DatabaseConfig(BaseSettings):
+    model_config = SettingsConfigDict(**AppBaseConfig.__dict__, env_prefix="DB_")
+    
+    database_url: str = Field(default=...)
+    echo: bool = Field(default=False)
+    echo_pool: bool = Field(default=False)
+    pool_size: int = Field(default=20)
+    max_overflow: int = 10
+    pool_timeout: int = 30
+    
+    naming_convention: dict[str, str] = {
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    }
+
+class SecurityCongig(BaseSettings):
+    model_config = SettingsConfigDict(**AppBaseConfig.__dict__, 
+                                      env_prefix="SECURITY")
+
+    secret_key: str = Field(default=...)
+    refresh_secret_key: str = Field(default=...)
+    algorithm: str = Field(default="HS256")
+
+    access_token_expire_minutes: int = Field(default=15)
+    refresh_token_expire_days:int = Field(default=7)
+
 class Config(BaseSettings):
 
     model_config = SettingsConfigDict(
         **AppBaseConfig.__dict__,
     )
 
-    database_url: str = Field(default=...)
+    debug: bool = Field(default=True)
+
+    security: SecurityCongig = Field(default_factory=SecurityCongig)
 
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    db: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    run: RunConfig = Field(default_factory=RunConfig)
 
 settings = Config()
