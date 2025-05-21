@@ -24,7 +24,7 @@ nav .dropdown-menu .nav-link{color:rgba(0,0,0,0.6)!important;} /* Maintain Downd
 
 /* Preloader */
 
-.page-preloader{position: fixed;top: 0;bottom: 0;width: 100%;z-index:100000;background:#FFFFFF url("./img/pageload-spinner.gif") no-repeat center center;animation-name: preloader-fade;animation-delay: 2s;animation-duration: 0.5s;animation-fill-mode: both;}
+.page-preloader{position: fixed;top: 0;bottom: 0;width: 100%;z-index:100000;background:#FFFFFF url("img/pageload-spinner.gif") no-repeat center center;animation-name: preloader-fade;animation-delay: 2s;animation-duration: 0.5s;animation-fill-mode: both;}
 .preloader-complete{animation-delay:0.1s;}
 @keyframes preloader-fade {0% {opacity: 1;visibility: visible;}100% {opacity: 0;visibility: hidden;}}
 
@@ -57,9 +57,6 @@ nav .dropdown-menu .nav-link{color:rgba(0,0,0,0.6)!important;} /* Maintain Downd
 }
 .bloc-md{
 	padding:50px 20px;
-}
-.bloc-sm{
-	padding:20px;
 }
 
 /* = Full Screen Blocs 
@@ -582,6 +579,8 @@ h1,h2,h3,h4,h5,h6{
 	
 	--swatch-var-778:rgba(0,0,0,0.50);
 	
+	--swatch-var-2851:#4532FF;
+	
 }
 
 
@@ -628,6 +627,14 @@ h1,h2,h3,h4,h5,h6{
 }
 .btn-c-7096:hover{
 	background:#61005F!important;
+	color:#FFFFFF!important;
+}
+.btn-c-2851{
+	background:var(--swatch-var-2851);
+	color:#FFFFFF!important;
+}
+.btn-c-2851:hover{
+	background:#1200CC!important;
 	color:#FFFFFF!important;
 }
 

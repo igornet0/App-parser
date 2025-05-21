@@ -14,6 +14,7 @@ if __name__ == "__main__":
         "run_app:main_app",
         host=settings.run.host,
         port=settings.run.port,
+        workers=4,
         reload=True,
         ssl_keyfile="./backend/ssl/key.pem",
         ssl_certfile="./backend/ssl/cert.pem"

@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image
 from typing import Optional, Literal, Any, Dict, Union, Generator
 import pandas as pd
+from pandas.api.types import CategoricalDtype
 import aiofiles
 import json
 import zipfile
@@ -58,6 +59,8 @@ class DataManager:
             "log": self.settings.LOG_PATH,
             "trach": self.settings.TRACH_PATH,
             "img trach": self.settings.IMG_TRACH,
+            "models": self.settings.MODELS_DIR,
+            "models configs": self.settings.MODELS_CONFIGS_PATH,
             }
 
         self._ensure_directories_exist()
@@ -92,7 +95,38 @@ class DataManager:
     @cached_property
     def coin_list(self) -> list[str]:
         """Кэшированный список монет"""
-        return pd.read_csv(self.settings.COIN_LIST_PATH)["name"]
+        return self.coin_list_df["name"]
+    
+    @cached_property
+    def coin_list_df(self) -> pd.DataFrame:
+        """Кэшированный список монет"""
+        return pd.read_csv(self.settings.COIN_LIST_PATH)
+    
+    @cached_property
+    def coin_one_hot(self) -> dict[str, list[int]]:
+        df = self.coin_list_df.copy()
+
+        coin_order = df["name"].unique().tolist()
+    
+        # Создаем категориальный тип с сохранением порядка
+        df['name_cat'] = df['name'].astype(
+            CategoricalDtype(categories=coin_order, ordered=True)
+        )
+        
+        # Генерируем one-hot кодировку
+        one_hot = pd.get_dummies(df['name_cat'], prefix='', prefix_sep='')
+        
+        # Конвертируем в список бинарных значений
+        df['one_hot'] = one_hot.apply(lambda x: x.tolist(), axis=1)
+        
+        # Удаляем временные столбцы и оставляем только нужные
+        return df.set_index('name')['one_hot'].apply(
+                lambda x: [int(i) for i in x]).to_dict()
+    
+    @classmethod
+    def get_df(cls, path: Path) -> pd.DataFrame:
+        """Кэшированный список монет"""
+        return pd.read_csv(path)
     
     def update_coin_list(self, new_list: list[str]) -> None:
         dt = pd.DataFrame(new_list, columns=["name"])
@@ -116,9 +150,10 @@ class DataManager:
                 continue
 
             for file in files:
-                if coin and file.startswith(coin):
-                    if timetravel and file.endswith(f"_{timetravel}.csv"):
-                        yield Path(root) / file
+                if (coin and coin in file) or not coin:
+                    if (timetravel and file.endswith(f"{timetravel}.csv")) or dataset_type:
+                        if (dataset_type and file.startswith(f"{dataset_type}")) or not dataset_type:
+                            yield Path(root) / file
 
     def save_img(self, img: Image, time_parser: str = "5m", name: str = "img") -> None:
         path = self.create_dir("raw", "img")
@@ -251,7 +286,7 @@ class DataManager:
         
         return True
 
-    def create_dir(self, type_dir: str, name_of_dir: str) -> None:
+    def create_dir(self, type_dir: Literal["raw", "processed", "cached", "backup"], name_of_dir: str) -> Path:
         """
         Создание директории
         """
@@ -305,13 +340,16 @@ class DataManager:
         """
         Загрузка конфигурации модели
         """
-        config_path = self.settings.MODELS_CONFIGS_PATH / f"{model_name}.yaml"
+        config_path = self.settings.MODELS_CONFIGS_PATH / f"{model_name}.json"
         try:
-            with open(config_path) as f:
-                return yaml.safe_load(f)
+            with open(config_path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"Model config not found: {model_name}")
         except Exception as e:
             logger.error(f"Error loading model config {model_name}: {str(e)}")
-            raise
+        
+        return {}
 
     async def save_processed_data(
         self,

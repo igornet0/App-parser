@@ -1,4 +1,3 @@
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Request, HTTPException, Depends
@@ -20,24 +19,31 @@ async def read_root(request: Request):
         {"request": request}
     )
 
-@router.get("/team")
+@router.get("/team_page")
 async def read_root(request: Request):
     return Server.templates.TemplateResponse(
-        "templates/team.html",
+        "team.html",
         {"request": request}
     )
 
-@router.get("/contact")
+@router.get("/contact_page")
 async def read_root(request: Request):
     return Server.templates.TemplateResponse(
-        "templates/contact.html",
+        "contact.html",
         {"request": request}
     )
 
 @router.get("/faq")
 async def read_root(request: Request):
     return Server.templates.TemplateResponse(
-        "templates/faq.html",
+        "faq.html",
+        {"request": request}
+    )
+
+@router.get("/profile_page")
+async def read_root(request: Request):
+    return Server.templates.TemplateResponse(
+        "faq.html",
         {"request": request}
     )
 

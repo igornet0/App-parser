@@ -1,0 +1,163 @@
+{
+    "agents": [
+        {
+            "name": "agent_pred_5m_full",
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "SMA20": {"period": 20, 
+                          "column": "close"}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "SMA20": {"period": 20, 
+                          "column": "open"}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "SMA20": {"period": 20, 
+                          "column": "max"}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "SMA20": {"period": 20, 
+                          "column": "min"}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "RSI14": {"period": 14},
+                "MACD": {"fast": 12, "slow": 26, "signal": 9},
+                "BOLLINGER": {"period": 20, "num_std": 2}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "ATR14": {"period": 20, 
+                          "column": "min"},
+                "STOCHASTIC_OSCILLATOR": {"period": 14, "smoothing": 3},
+                "BOLLINGER": {"period": 20, "num_std": 2}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_5m_full+",
+            "indecaters": {
+                "EMA14": {"period": 14},
+                "STOCHASTIC_OSCILLATOR": {"period": 14, "smoothing": 3},
+                "BOLLINGER": {"period": 20, "num_std": 2}
+            },
+
+            "type": "agentPred",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "pred_len": 5,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        }
+    ]
+}

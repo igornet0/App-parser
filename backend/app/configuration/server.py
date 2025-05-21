@@ -7,7 +7,7 @@ class Server:
 
     __app: FastAPI
 
-    templates = Jinja2Templates(directory="backend/app/front")
+    templates = Jinja2Templates(directory="backend/app/front/templates")
 
     def __init__(self, app: FastAPI):
         self.__app = app

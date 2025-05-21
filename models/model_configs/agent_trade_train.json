@@ -1,0 +1,76 @@
+{   
+    "epochs": 100,
+    "batch_size": 30,
+    "num_workers": 0,
+    "lr": 3e-4,
+    "weight_decay": 1e-5,
+    "patience": 7,
+    "mixed": true,
+    "mixed_precision": true,
+
+    "agents": [
+        {
+            "name": "agent_trade_5m_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"}
+            },
+
+            "type": "AgentTradeTime",
+            "timetravel": "5m",
+            "discription": "Agent for .",
+
+            "model_parameters": {
+                "datetime_format": "%Y-%m-%d %H:%M:%S %w",
+                "input_features": ["open", "max", "min", "close", "volume"],
+                "seq_len": 30,
+                "d_model": 128,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        }
+    ],
+
+    "schema": {
+        "period": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 40
+        },
+        "column": {
+            "type": "string",
+            "enum": ["open", "max", "min", "close"]
+        },
+        "fast": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100
+        },
+        "slow": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100
+        },
+        "signal": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 100
+        },
+        "smoothing": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+        },
+        "num_std": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+        }
+    }
+}
