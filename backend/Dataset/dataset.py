@@ -192,6 +192,12 @@ class DatasetTimeseries(Dataset):
         self.dataset["datetime"] = pd.to_datetime(self.dataset["datetime"], 
                                                   format='%Y-%m-%d %H:%M:%S', 
                                                   errors='coerce')
+        
+        self.dataset["open"] = self.dataset["open"].apply(str_to_float)
+        self.dataset["close"] = self.dataset["close"].apply(str_to_float)
+        self.dataset["max"] = self.dataset["max"].apply(str_to_float)
+        self.dataset["min"] = self.dataset["min"].apply(str_to_float)
+        self.dataset["volume"] = self.dataset["volume"].apply(str_to_float)
     
         self.dataset = self.dataset.dropna(subset=["datetime"])
 
@@ -201,7 +207,10 @@ class DatasetTimeseries(Dataset):
                         filter_data: Optional[Callable] = lambda x: True,
                         transform_data: Optional[Callable] = lambda x: x) -> LoaderTimeLine:
         
-        return LoaderTimeLine(self, time_line_size, filter_data, transform_data)
+        self.dataset = self.dataset.sort_values(by="datetime", 
+                                        ignore_index=True)
+        
+        return LoaderTimeLine(self, time_line_size, filter_data, transform_data, self.timetravel)
 
     def get_count_time_line(self, time_line_size: int = 30, 
                         filter_data: Optional[Callable] = lambda x: True,
@@ -256,7 +265,7 @@ class DatasetTimeseries(Dataset):
         return dataset
     
     def set_timetravel(self, timetravel: str):
-        if not timetravel in RU_EN_timetravel.keys() or timetravel.isdigit():
+        if not (timetravel in RU_EN_timetravel.keys() or timetravel in RU_EN_timetravel.values()):
             raise ValueError(f"Invalid timetravel: {timetravel}")
 
         self.timetravel = timetravel
@@ -264,30 +273,80 @@ class DatasetTimeseries(Dataset):
     def duplicated(self):
         return self.dataset[self.dataset.duplicated(keep=False)]
 
-    def plot_series(self, dataset: list | None = None, param: str = "close") -> None:
-        plt.figure(figsize=(12, 8))
-
+    def plot_series(self, dataset: list | None = None, param: str = "close", indicators: dict | None = None) -> None:
+        # Determine main dataset, dates, and data
         if dataset is None:
-            y = self.dataset[param]
-            utils.plot_series(y)
-            plt.title(param)
-            plt.tick_params(axis='both', which='major', labelsize=14)
-
-            plt.show()
+            main_data = self.dataset[param]
+            if 'datetime' in self.dataset.columns:
+                main_dates = self.dataset['datetime']
+            else:
+                main_dates = main_data.index
         else:
-            dates = [item['datetime'] for item in dataset]
-            closes = [item[param] for item in dataset]
+            main_dates = dataset['datetime']
+            main_data = dataset[param]
 
-            # Построение графика
-            plt.figure(figsize=(10, 5))
-            plt.plot(dates, closes, marker='o')
-            # plt.title('График цены закрытия')
-            plt.xlabel('Время')
-            plt.ylabel('Цена')
-            plt.xticks(rotation=45)
-            plt.grid()
-            plt.tight_layout()
-            plt.show()
+        # Check if there are indicators to plot
+        if indicators is None:
+            # Original plotting without indicators
+            if dataset is None:
+                plt.figure(figsize=(12, 8))
+                plt.plot(main_dates, main_data)
+                plt.title(param)
+                plt.tick_params(axis='both', which='major', labelsize=14)
+                plt.grid(True)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                plt.show()
+            else:
+                plt.figure(figsize=(10, 5))
+                plt.plot(main_dates, main_data, marker='o')
+                plt.xlabel('Время')
+                plt.ylabel('Цена')
+                plt.xticks(rotation=45)
+                plt.grid()
+                plt.tight_layout()
+                plt.show()
+            return
+
+        # Split indicators into those on the main plot and separate subplots
+        on_indicators = {}
+        off_indicators = {}
+        for name, ind in indicators.items():
+            if ind.get('on', False):
+                on_indicators[name] = ind
+            else:
+                off_indicators[name] = ind
+
+        num_subplots = 1 + len(off_indicators)
+        fig, axes = plt.subplots(num_subplots, 1, figsize=(12, 6 * num_subplots), sharex=True)
+        if num_subplots == 1:
+            axes = [axes]  # Ensure axes is a list for consistent handling
+
+        # Plot main data and on=True indicators on the first subplot
+        ax_main = axes[0]
+        ax_main.plot(main_dates, main_data, label=param, marker='o' if dataset is not None else None)
+        for name, ind in on_indicators.items():
+            ax_main.plot(main_dates, ind['data'], label=name)
+
+        ax_main.set_title(param)
+        ax_main.grid(True)
+        ax_main.legend()
+        ax_main.tick_params(axis='both', labelsize=12)
+
+        # Plot off_indicators on subsequent subplots
+        for i, (name, ind) in enumerate(off_indicators.items(), start=1):
+            ax = axes[i]
+            ax.plot(main_dates, ind['data'], label=name)
+            ax.grid(True)
+            ax.legend()
+            ax.set_ylabel(name)
+            ax.tick_params(axis='both', labelsize=12)
+
+        # Set common x-axis labels
+        axes[-1].set_xlabel('Время' if dataset is not None else 'Time')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
 
     def get_dataset_Nan(self) -> pd.DataFrame:
         return self.dataset.loc[self.dataset['open'] == "x"]

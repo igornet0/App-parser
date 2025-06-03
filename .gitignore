@@ -12,7 +12,7 @@ node_modules/
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.pth
 .DS_Store
 *.zip
 /data/*
@@ -20,6 +20,8 @@ __pycache__/
 /node_modules
 /.pnp
 .pnp.js
+*.zip
+*.ipynb
 
 # misc
 .env.local
@@ -200,3 +202,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+privkey.pem
+certificate.pem

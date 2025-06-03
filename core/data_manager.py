@@ -43,6 +43,7 @@ class SettingsTrade(BaseSettings):
     # Модели ML
     MODELS_DIR: Path = BASE_DIR / "models"
     MODELS_CONFIGS_PATH: Path = MODELS_DIR / "model_configs"
+    MODEL_PTH_PATH: Path = MODELS_DIR / "models_pth"
     # ACTIVE_MODEL: FilePath = TRAINED_MODELS_PATH / "current_model.pkl"
 
 class DataManager:
@@ -61,6 +62,7 @@ class DataManager:
             "img trach": self.settings.IMG_TRACH,
             "models": self.settings.MODELS_DIR,
             "models configs": self.settings.MODELS_CONFIGS_PATH,
+            "models pth": self.settings.MODEL_PTH_PATH,
             }
 
         self._ensure_directories_exist()
@@ -150,10 +152,14 @@ class DataManager:
                 continue
 
             for file in files:
-                if (coin and coin in file) or not coin:
-                    if (timetravel and file.endswith(f"{timetravel}.csv")) or dataset_type:
-                        if (dataset_type and file.startswith(f"{dataset_type}")) or not dataset_type:
-                            yield Path(root) / file
+
+                if coin:
+                    if not coin in file.replace("_", "-").split("-"):
+                        continue
+
+                if (timetravel and file.endswith(f"{timetravel}.csv")) or dataset_type:
+                    if (dataset_type and file.startswith(f"{dataset_type}")) or not dataset_type:
+                        yield Path(root) / file
 
     def save_img(self, img: Image, time_parser: str = "5m", name: str = "img") -> None:
         path = self.create_dir("raw", "img")

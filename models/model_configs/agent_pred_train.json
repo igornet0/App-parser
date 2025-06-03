@@ -1,16 +1,52 @@
 {   
     "epochs": 100,
-    "batch_size": 30,
+    "batch_size": 150,
     "num_workers": 0,
-    "lr": 3e-4,
-    "weight_decay": 1e-5,
+    "lr": 1e-5,
+    "weight_decay": 1e-4,
     "patience": 7,
     "mixed": true,
     "mixed_precision": true,
+    "RANDOM_INDICATETS": true,
 
     "agents": [
         {
             "name": "agent_pred_5m_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"},
+                "VWAP": {},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "OBV": {},
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 362880}
+            },
+
+            "type": "AgentPReadTime",
+            "timetravel": "5m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 20,
+                "d_model": 128,
+                "emb_month_size": 8,
+                "emb_weekday_size": 4,
+                "lstm_hidden": 256,
+                "num_layers": 2,
+                "n_heads": 4,
+                "dropout": 0.2
+            }
+        },
+        {
+            "name": "agent_pred_15m_full_RP",
 
             "indecaters": {
                 "SMA": {"period": "?", "column": "?"},
@@ -22,19 +58,144 @@
                 "BOLLINGER": {"period": "?", "num_std": "?"},
                 "VWAP": {},
                 "OBV": {},
-                "MFI": {"period": "?"}
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 362880}
             },
 
             "type": "AgentPReadTime",
-            "timetravel": "5m",
+            "timetravel": "15m",
             "discription": "Agent for predicting the next token in a sequence.",
 
             "model_parameters": {
-                "datetime_format": "%Y-%m-%d %H:%M:%S %w",
-                "input_features": ["open", "max", "min", "close", "volume"],
-                "seq_len": 30,
-                "pred_len": 5,
-                "d_model": 128,
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 10,
+                "d_model": 256,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_30m_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"},
+                "VWAP": {},
+                "OBV": {},
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 362880}
+            },
+
+            "type": "AgentPReadTime",
+            "timetravel": "30m",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 10,
+                "d_model": 256,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_1H_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"},
+                "VWAP": {},
+                "OBV": {},
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 6048}
+            },
+
+            "type": "AgentPReadTime",
+            "timetravel": "1H",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 10,
+                "d_model": 256,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_4H_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"},
+                "VWAP": {},
+                "OBV": {},
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 6048}
+            },
+
+            "type": "AgentPReadTime",
+            "timetravel": "4H",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 10,
+                "d_model": 256,
+                "n_heads": 8,
+                "dropout": 0.3
+            }
+        },
+        {
+            "name": "agent_pred_1D_full_RP",
+
+            "indecaters": {
+                "SMA": {"period": "?", "column": "?"},
+                "EMA": {"period": "?", "column": "?"},
+                "RSI": {"period": "?"},
+                "ATR": {"period": "?"},
+                "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+                "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+                "BOLLINGER": {"period": "?", "num_std": "?"},
+                "VWAP": {},
+                "OBV": {},
+                "MFI": {"period": "?"},
+                "CRV": {"period": "?", "trading_days": 6048}
+            },
+
+            "type": "AgentPReadTime",
+            "timetravel": "1D",
+            "discription": "Agent for predicting the next token in a sequence.",
+
+            "model_parameters": {
+                "datetime_format": "%m-%d %H:%M %w",
+                "input_features": ["close", "max", "min", "volume"],
+                "seq_len": 50,
+                "pred_len": 10,
+                "d_model": 256,
                 "n_heads": 8,
                 "dropout": 0.3
             }

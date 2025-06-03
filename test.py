@@ -1,19 +1,10 @@
-# %%
-# !pip install --upgrade pip
-# !pip install matplotlib
-# !pip install -U scikit-learn
-# !pip install sktime
-# !pip install torch torchvision torchaudio
-# !pip install transformers
-# !pip install pytesseract
-# !pip install opencv-python
 
 # %%
 from core import data_manager, DataManager, settings
 from core.utils import setup_logging
 from pathlib import Path
 
-# settings.logging.level = "DEBUG"
+settings.logging.level = "DEBUG"
 
 setup_logging()
 
@@ -24,8 +15,8 @@ setup_logging()
 coins = {}
 
 for coin in data_manager.coin_list:
-    if coin != "TON":
-        continue
+    # if coin != "TON":
+    #     continue
     for path in data_manager.get_path(data_type="raw",
                                       coin=coin,
                                       timetravel="5m"):
@@ -45,91 +36,102 @@ coins_dubl = {}
 for coin, paths in coins.items():
     for path in paths:
         dt = DatasetTimeseries(path)
-        dt.clear_dataset()
+        dt.set_dataset(dt.clear_dataset())
         coins_dt.setdefault(coin, [])
         coins_dt[coin].append(dt)
 
-    df_new = pd.concat(map(lambda dt: dt.get_dataset(), coins_dt[coin]), ignore_index=True)
-    df_new = DatasetTimeseries(df_new).dataset_clear()
-    df_new.drop_duplicates(subset=["datetime", "open", "min", "max", "close", "volume"], inplace=True)
-    df_new = DatasetTimeseries(df_new)
-    coins_dubl.setdefault(coin, len(df_new.duplicated()))
+    # df_new = pd.concat(map(lambda dt: dt.get_dataset(), coins_dt[coin]), ignore_index=True)
+    # df_new = DatasetTimeseries(df_new).dataset_clear()
+    # df_new.drop_duplicates(subset=["datetime", "open", "min", "max", "close", "volume"], inplace=True)
+    # df_new = DatasetTimeseries(df_new)
+    # coins_dubl.setdefault(coin, len(df_new.duplicated()))
 
-    df_new.set_dataset(df_new.clear_dataset())
-    path_coin = data_manager.create_dir("processed", coin)
-    df_new.set_path_save(data_manager.create_dir("processed", path_coin / "5m"))
-    df_new.save_dataset(f"clear-{coin}-5m.csv")
-    coins_dt[coin] = df_new
+    # df_new.set_dataset(df_new.clear_dataset())
+    # path_coin = data_manager.create_dir("processed", coin)
+    # df_new.set_path_save(data_manager.create_dir("processed", path_coin / "5m"))
+    # df_new.save_dataset(f"clear-{coin}-5m.csv")
+    # coins_dt[coin] = df_new
     
 
 # %%
-for coin, count in coins_dubl.items():
-    if count == 0:
+def sear_datetime(dt: pd.DataFrame, date):
+    return dt[dt["datetime"] == date]
+
+
+# %%
+coin_new_dt = {}
+
+for coin, dts in coins_dt.items():
+    min_data = None
+    max_data = None
+    print("-"* 10)
+    print(coin)
+    for dt in dts:
+        if min_data is None or min_data > dt.get_dataset().datetime.min():
+            min_data = dt.get_dataset().datetime.min()
+        if max_data is None or max_data < dt.get_dataset().datetime.max():
+            max_data = dt.get_dataset().datetime.max()
+    if (min_data - max_data).total_seconds() == 0:
         continue
-    print(f"Coin: {coin}, Duplicates: {count}")
+    print(f"min: {min_data}")
+    print(f"max: {max_data}")
+    print((min_data - max_data).total_seconds())
 
-# %%
-for coin, dt in coins_dt.items():
-    if (len(dt.get_dataset_Nan()) / len(dt.get_dataset())) < 0.3:
-        print(f"{coin=}\n{dt.get_dataset().shape=}\n{dt.get_dataset_Nan().shape=}")
-        print(len(dt.get_dataset_Nan()) / len(dt.get_dataset()))
-        print()
+    new_dt = []
+    correct_dt = {}
     
+    for date in pd.date_range(min_data, max_data, freq="5min"):
+        data_buffer = {}
+        for dt in dts:
+            result = sear_datetime(dt.get_dataset(), date)
+            if len(result) == 0:
+                continue
+            data_buffer.setdefault(dt, result)
 
-# %%
-# dt_TON = coins_dt["AVAX"]
-# df: pd.DataFrame = dt_TON.get_dataset()
-# # dubl = df.duplicated(subset=["datetime"], keep=False)
-# for data in dt_TON:
-#     if data["volume"] != "x" and data["volume"] > 100:
-#         print(data)
-    
+        if len(data_buffer.values()) > 1:
+            datas = list(data_buffer.values())
+            for data in datas[1:]:
+                if data["volume"].item() == datas[0]["volume"].item():
+                    continue
+                i = 0
+                dt_i = {}
+                i_dt = {}
+                flag_correct = False
+                dt_correct = None
+                for dt, result in data_buffer.items():
+                    print(f"{i}: {result}")
+                    dt_i[i] = dt
+                    i_dt[dt] = i
+                    i += 1
 
-# %%
-from backend.MMM import Agent, AgentPReadTime
-from backend.Dataset import Indicators
-from backend.train_models import Loader
+                for dt, result in data_buffer.items():
+                    if correct_dt[dt] > 50:
+                        print("-"* 10)
+                        print(f"Coorect - {i_dt[dt]}{dt}: {correct_dt[dt]}")
+                        print("-"* 10)
+                        flag_correct = True
+                        dt_correct = dt
+                        break
 
+                s = input()
 
-# %%
-coin_loader = {}
-for coin, dt in coins_dt.items():
-    dt: DatasetTimeseries
-    filter_func = lambda x: x["open"] != "x"
+                if s == "c":
+                    break
+                
+                elif flag_correct and s == "y" and dt_correct is not None:
+                    correct_dt.setdefault(dt, 0)
+                    correct_dt[dt] += 1
+                    new_dt.append(data_buffer[dt_correct])
+                    break
+                elif s.isdigit():
+                    dt = dt_i[int(s)]
+                    correct_dt.setdefault(dt, 0)
+                    correct_dt[dt] += 1
+                    new_dt.append(datas[int(s)])
+                    break
+                print("-"* 10)
 
-    loader = dt.get_time_line_loader(time_line_size=40, 
-                                filter_data=filter_func)
-    print(f"{coin=}, {len(loader)=}")
-    coin_loader[coin] = loader
+        else:
+            new_dt.append(list(data_buffer.values())[0])
 
-loader_train = Loader("agent_pred_train")
-agent_manager = loader_train.load_model(count_agents=1000)
-
-
-# %%
-loader = loader_train.train_model(list(coin_loader.values()),
-                                  agent_manager=agent_manager,
-                                  mixed=True,)
-
-# %%
-print(type(loader))
-count = 0
-# loader_t = loader.get_loader()
-flag = False
-for bath in loader:
-    x, y, time_x = bath
-    count += 1
-    if not flag:
-        flag = True
-        data = bath
-        print(x.shape, y.shape, time_x.shape)
-        break
-        # print(x[0])
-        # print(y[0])
-        # print(time_x[0])
-    # if time_x[0][0][0] < 2020:
-    #     print(bath)
-    # print(time_x)
-
-print(count)
-print(data)
+    coin_new_dt[coin] = new_dt

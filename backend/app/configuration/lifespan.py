@@ -13,7 +13,7 @@ async def app_lifespan(app: FastAPI):
     """Менеджер жизненного цикла приложения"""
     try:
         logger.info("Initializing database...")
-        await db_helper.create_tables()
+        await db_helper.init_db()
         logger.info("Application startup complete")
         yield
     finally:

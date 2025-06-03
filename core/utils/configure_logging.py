@@ -3,6 +3,8 @@ from logging.handlers import RotatingFileHandler
 from core.settings import settings
 from core import data_manager
 
+logging.getLogger('passlib').setLevel(logging.ERROR)
+
 def setup_logging():
 
     # Очищаем все существующие обработчики

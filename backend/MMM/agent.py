@@ -1,6 +1,5 @@
 import torch
 import copy
-import math
 from typing import Dict, Any, Union, Generator, Tuple
 import pandas as pd
 
@@ -8,6 +7,8 @@ from backend.Dataset.indicators import Indicators
 
 import logging
 logger = logging.getLogger("MMM.Agent")
+
+HISTORY_SIZE = 1000
 
 class Agent:
 
@@ -27,7 +28,8 @@ class Agent:
 
     def __init__(self, name: str, indecaters: Dict[str, Dict[str, Any]], timetravel: str = "5m",
                  discription: str = "Agent", model_parameters: Dict[str, Any] = {},
-                 shema_RP: Dict[str, Generator[None, None, Any]] = {}):
+                 shema_RP: Dict[str, Generator[None, None, Any]] = {},
+                 RM_I: bool = False):
         """
         mod_RP - Random Parameters in Indecaters
         """
@@ -37,16 +39,30 @@ class Agent:
         self.indecaters = copy.deepcopy(indecaters)
         if "RP" in self.name:
             self.indecaters = self.replace_question_marks(shema_RP, self.indecaters)
+
+        if RM_I:
+            self.indecaters = self.indecater_with_random()
         
         self.timetravel = timetravel
         self.discription = discription
         self._model_parameters = model_parameters
         self.lr_factor = 1
+        self.history = []
+        self.data_buffer = []
+        self.data_buffer_size = 1000
 
         self._init_model(self.model_parameters)
 
     def set_id(self, id: int):
         self.id = id
+
+    def indecater_with_random(self):
+        new_indicators = {}
+        for name, indicator in self.indecaters.items():
+            if torch.randint(0, 2, (1, 1)).item() == 1:
+                new_indicators[name] = indicator
+
+        return new_indicators
 
     def _init_model(self, model_parameters: Dict[str, Any]) -> None:
         return None
@@ -80,7 +96,7 @@ class Agent:
     
     @property  
     def model_parameters(self) -> Dict[str, Any]:
-        return self._model_parameters
+        return self._model_parameters.copy()
 
     def get_indecaters(self) -> Dict[str, Dict[str, Any]]:
         return self.indecaters
@@ -102,6 +118,18 @@ class Agent:
 
     def get_count_output_features(self) -> int:
         return len(self.model_parameters["output_features"])
+    
+    def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
+        if self.model is None:
+            raise ValueError("Model is not initialized")
+        
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'loss': best_loss,
+        }, filename)
     
     def get_model(self):
         return self.model
@@ -130,31 +158,74 @@ class Agent:
         data.drop("datetime", axis=1, inplace=True)
 
         return data
-
-    def preprocess_data(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    
+    def normalize_data(self, data: pd.DataFrame) -> pd.DataFrame:
 
         for indecater_name, params in self.get_indecaters().items():
-            data = Indicators.calculate(indecater_name, data.copy(), **params)
-        
-        data = self._prepare_datetime(data)
-        
-        # column_time = "datetime"
-        column_time = ["month", "day", "hour", "minute", "weekday"]
+            data = Indicators.calculate_normalized(indecater_name, data.copy(), **params)
 
-        drop_columns = ["year", "second"]
+        data['close'] = (data['close'] - data['open']) / data['open'] * 100
+        data['max'] = (data['max'] - data['open']) / data['open'] * 100
+        data['min'] = (data['min'] - data['open']) / data['open'] * 100
 
-        time_features = data[column_time]
+        return data
 
-        data = data.drop(column_time, axis=1)
-        data = data.drop(drop_columns, axis=1)
+    def preprocess_data_for_model(self, data: pd.DataFrame, normalize=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-        return data, time_features
+        return data
+    
+    def procces_target(self, target: pd.DataFrame) -> pd.DataFrame:
+        if isinstance(target, pd.Series):
+            target = target.to_frame()
+
+        if "close" in target.columns:
+            target["close"] = (target["open"] - target["close"]) / target["open"] * 100
+            target["max"] = (target["open"] - target["max"]) / target["open"] * 100
+            target["min"] = (target["open"] - target["min"]) / target["open"] * 100
+
+        return target
+    
+    def loss_function(self, y_pred, y_true):
+        return self.model.loss_function(y_pred, y_true)
     
     def set_model(self, model):
         self.model = model
 
-    def get_trade(self, data):
+    def update_data_buffer(self, data):
+        self.data_buffer.append(data)
+        if len(self.data_buffer) > self.data_buffer_size:
+            self.data_buffer.pop(0)
+
+        return self.data_buffer
+    
+    def get_data_buffer(self):
+        return self.data_buffer
+    
+    def update_history(self, action, data):
+        self.history.append({"action": action, "data": data})
+
+        if len(self.history) > HISTORY_SIZE:
+            self.history.pop(0)
+
+        return self.history
+
+    def trade(self, data):
         if self.model is None:
-            raise ValueError("Model is not set. Please set the model before calling get_trade.")
+            raise ValueError("Model is not set. Please set the model before calling trade.")
         
-        return self.model.predict(data)
+        self.update_data_buffer(data)
+
+        action = self.model(*data)
+        self.update_history(action, data)
+
+        return action
+    
+    def get_str_indecaters(self):
+        result = ""
+        for indecater_name, params in self.get_indecaters().items():
+            result += f"\t{indecater_name}: {params}\n"
+
+        return result
+    
+    def __str__(self):
+        return f"Agent: {self.name} - {self.discription}\nIndecaters:\n{self.get_str_indecaters()}"

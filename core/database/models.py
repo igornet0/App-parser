@@ -1,5 +1,5 @@
 # модели для БД
-from sqlalchemy import DateTime, ForeignKey, Float, String, BigInteger, func, Integer
+from sqlalchemy import DateTime, ForeignKey, Float, String, BigInteger, func, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from passlib.context import CryptContext
 
@@ -9,11 +9,13 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     login: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(50), nullable=True)
+    email: Mapped[str] = mapped_column(String(50), unique=True, nullable=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
-    user_telegram_id: Mapped[int] = mapped_column(BigInteger)
+    user_telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0)
+    role: Mapped[str] = mapped_column(String(50), default="user")
 
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 class Coin(Base):
 
@@ -37,14 +39,24 @@ class Portfolio(Base):
 
 class Timeseries(Base):
 
-    __tablename__ = 'timeseries'
-
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     coin_id: Mapped[int] = mapped_column(ForeignKey('coins.id'))  
     timestamp: Mapped[str] = mapped_column(String(50)) 
     path_dataset: Mapped[str] = mapped_column(String(100), unique=True)
 
     coin: Mapped['Coin'] = relationship(back_populates='timeseries')
+
+
+class DataTimeseries(Base):
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    timeseries_id: Mapped[int] = mapped_column(ForeignKey('timeseriess.id'))  
+    datetime: Mapped[str] = mapped_column(String(50), nullable=False) 
+    open: Mapped[float] = mapped_column(Float)
+    max: Mapped[float] = mapped_column(Float)
+    min: Mapped[float] = mapped_column(Float)
+    close: Mapped[float] = mapped_column(Float)
+    volume: Mapped[float] = mapped_column(Float)
 
 
 class Transaction(Base):

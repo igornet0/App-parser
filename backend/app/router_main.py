@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Request, HTTPException, Depends
 
 from core import User
-from core.database.orm_query import orm_get_coin
-from backend.app.configuration import Server, get_db, CoinResponse
+from core.database.orm_query import orm_get_coin_by_name
+from backend.app.configuration import Server, CoinResponse
 
 import logging
 
@@ -47,11 +47,18 @@ async def read_root(request: Request):
         {"request": request}
     )
 
+@router.get("/pricing_page")
+async def read_root(request: Request):
+    return Server.templates.TemplateResponse(
+        "pricing.html",
+        {"request": request}
+    )
+
 @router.post("/users/")
 async def create_user(
     username: str,
     email: str,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(Server.get_db)
 ):
     # Проверка уникальности email
     result = await session.execute(select(User).where(User.email == email))
@@ -68,7 +75,7 @@ async def create_user(
 async def update_username(
     user_id: int,
     new_username: str,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(Server.get_db)
 ):
     result = await session.execute(
         update(User)
@@ -87,7 +94,7 @@ async def update_username(
 @router.get("/users/{user_id}")
 async def get_user(
     user_id: int,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(Server.get_db)
 ):
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
@@ -97,12 +104,11 @@ async def get_user(
     
     return user
 
-@router.get("/coin/{coin_name}", response_model=CoinResponse)
+@router.get("/coins/", response_model=CoinResponse)
 async def get_coin(
-    coin_name: str,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(Server.get_db)
 ):
-    coin = await orm_get_coin(session, coin_name)
+    coin = await orm_get_coin_by_name(session, "BTC")
     
     if not coin:
         raise HTTPException(status_code=404, detail="Coin not found")

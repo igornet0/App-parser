@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from datetime import datetime
 import torch
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
@@ -36,11 +37,14 @@ class Loader:
         logger.info(f"Loading Agent: {self.agent_type}")
         config_model = data_manager.get_model_config(self.agent_type)
 
+        RM_I = config_model.get("RANDOM_INDICATETS", False)
+
         try:
             agent_manager = AgentManager(agent_type=self.agent_type,
                                          config=config_model,
                                          count_agents=count_agents,
-                                         schema_RP=self._load_schema(self.agent_type))
+                                         schema_RP=self._load_schema(self.agent_type),
+                                         RM_I=RM_I)
         except Exception as e:
             logger.error(f"Error loading agent: {self.agent_type} - {str(e)}")
             return None
@@ -60,6 +64,8 @@ class Loader:
         Returns:
             loss: Combined loss value
         """
+        print("vectorized_quantile_loss")
+        print(f"predictions.shape: {predictions.shape}\ntargets.shape: {targets.shape}")
         price_pred = predictions[..., 0]
         direction_pred = predictions[..., 2]  # Добавить выход для направления
         
@@ -231,6 +237,10 @@ class Loader:
 
             print(f"Epoch {epoch+1:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
+    @staticmethod
+    def train_agent(loader, agent):
+        logger.info("🚀 Starting ensemble training")
+
     @torch.no_grad()
     def _evaluate(self, dataloader):
         self.model.eval()
@@ -258,6 +268,12 @@ class Loader:
     def _train_single_agent(self, agent: Agent, loaders: List[LoaderTimeLine], epochs, batch_size, 
                         base_lr, weight_decay, patience, mixed, mixed_precision):
         
+        test_tensor = torch.randn(2, 2).to(self.device)
+        try:
+            print("MPS test:", test_tensor @ test_tensor.T)
+        except Exception as e:
+            print(f"MPS error: {e}")
+        
         is_cuda = self.device.type == 'cuda'
         is_mps = self.device.type == 'mps'
 
@@ -279,30 +295,38 @@ class Loader:
         loader = self.load_agent_data(loaders, agent, batch_size, mixed)
 
         # Автоматически отключаем mixed_precision для CPU
-        effective_mp = mixed_precision and (is_cuda or is_mps)  # MPS имеет ограниченную поддержку
+        effective_mp = mixed_precision and is_cuda  # MPS имеет ограниченную поддержку
         if is_mps and mixed_precision:
             print("⚠️ Mixed precision на MPS может работать некорректно. Рекомендуется использовать fp32")
         
         # Инициализация GradScaler только при необходимости
         scaler = GradScaler(enabled=effective_mp)
 
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, 
-            max_lr=base_lr * agent.lr_factor,
-            total_steps=epochs * len(loader)
+            "min",
+            factor=0.5,
+            patience=patience
         )
         
         best_loss = float('inf')
-        history = []
+        history_loss = []
+        history_state = []
         
         # Цикл эпох
         for epoch in range(epochs):
             epoch_loss = 0.0
             model.train()
             start_time = time.time()
+
+            pbar = tqdm(enumerate(loader), 
+                        total=len(loader), 
+                        desc=f"Epoch {epoch+1}/{epochs} | Agent {agent.id}| ",
+                        bar_format="{l_bar}|{bar:20}|{r_bar}", 
+                        leave=False)
             
             # Итерация по батчам с прогресс-баром
-            for batch in tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}", leave=False):
+            for batch_idx, batch in pbar:
                 x, y, time_x = batch
 
                 # Перенос данных на устройство
@@ -312,25 +336,42 @@ class Loader:
                 
                 optimizer.zero_grad()
                 with autocast(device_type=self.device.type, enabled=effective_mp and (is_cuda or is_mps)):
-                    outputs = model(x, time_x)
-                    # print("outputs shape:", outputs.shape)
-                    # print("y shape:", y.shape)
-                    loss = self.vectorized_quantile_loss(outputs, y)
+                    assert torch.isnan(x).sum() == 0, "Найдены NaN во входных данных X"
+                    assert torch.isinf(time_x).sum() == 0, "Найдены inf в Time"
+                    assert torch.isnan(time_x).sum() == 0, "Найдены NaN в Time"
+                    
+                    outputs = agent.trade([x, time_x])
+
+                    loss = agent.loss_function(outputs, y)
+                    assert torch.isnan(loss).sum() == 0, "Найдены NaN в loss"
+                    # print(outputs.shape, y.shape)
+                    # print(outputs)
+                    # print(f"Loss: {loss.item():.4f} | Batch size: {x.size(0)}")
 
                 # Обновление градиентов
                 if effective_mp:
                     scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)  # Важно для клиппинга при использовании scaler
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                     scaler.step(optimizer)
                     scaler.update()
                 else:
                     loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Клиппинг
                     optimizer.step()
                 
-                scheduler.step()
-                epoch_loss += loss.item()
+                current_loss = loss.item()
+                scheduler.step(current_loss)
+                epoch_loss += current_loss
+                pbar.set_postfix({
+                        'loss': f"{current_loss:.4f}",  # Текущий loss батча
+                        'avg_loss': f"{epoch_loss/(batch_idx+1):.4f}",  # Средний loss
+                        'lr': f"{optimizer.param_groups[0]['lr']:.2e}"  # Learning rate
+                    })
 
             # Статистика эпохи
             avg_loss = epoch_loss / len(loader)
+            history_loss.append(avg_loss)
             lr = optimizer.param_groups[0]['lr']
             epoch_time = time.time() - start_time
             
@@ -338,25 +379,63 @@ class Loader:
             status = "🟢 Improved!" if avg_loss < best_loss else "🟡 No improvement"
             print(
                 f"\nAgent {agent.id} | Epoch {epoch+1:02d}/{epochs} "
-                f"| Loss: {avg_loss:.4f} ({best_loss:.4f}) "
+                f"| Loss: {avg_loss:.4f} ({best_loss:.4f}) Hisstory AVG loss ({sum(history_loss)/len(history_loss):.4f}) "
                 f"| LR: {lr:.2e} | Time: {epoch_time:.1f}s\n"
-                f"{status}{' | ⏹ Early Stopping' if patience <= history.count(False) else ''}"
+                f"{status}{' | ⏹ Early Stopping' if patience <= history_state.count(False) else ''}"
             )
             
             # Ранняя остановка
             if avg_loss < best_loss:
                 best_loss = avg_loss
-                torch.save(model.state_dict(), agent.weights_path)
-                history.append(True)
+                history_state.append(True)
+                if len(history_state) % 10 == 0:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+                    filename = data_manager["models pth"] / f"{agent.name}_{agent.id}_{timestamp}_{id(agent)}.pth"
+
+                    agent.save_model(epoch=epoch, 
+                                     optimizer=optimizer, 
+                                     scheduler=scheduler, 
+                                     best_loss=best_loss, 
+                                     filename=filename)
             else:
-                history.append(False)
-                if sum(history[-patience:]) == 0:
+                history_state.append(False)
+                if sum(history_state[-patience:]) == 0:
                     print(f"🛑 Early stopping triggered for Agent {agent.id}")
                     break
 
         # Загрузка лучших весов
-        model.load_state_dict(torch.load(agent.weights_path))
+        # model.load_state_dict(torch.load(agent.weights_path))
         print(f"\n⭐ Agent {agent.id} Best Loss: {best_loss:.4f}\n")
+        
+        training_info = {
+            'epochs_trained': epoch + 1,
+            'loss_history': history_loss,
+            'best_loss': best_loss,
+            'indecaters': agent.get_indecaters(),
+            "seq_len": agent.model_parameters["seq_len"],
+            "pred_len": agent.model_parameters["pred_len"],
+            "d_model": agent.model_parameters.get("d_model", 128),
+            "n_heads": agent.model_parameters.get("n_heads", 4),
+            "emb_month_size": agent.model_parameters.get("emb_month_size", 8),
+            "emb_weekday_size": agent.model_parameters.get("emb_weekday_size", 4),
+            "lstm_hidden": agent.model_parameters.get("lstm_hidden", 256),
+            "num_layers": agent.model_parameters.get("num_layers", 2),
+            "dropout": agent.model_parameters.get("dropout", 0.2),
+            'hyperparams': {
+                'base_lr': base_lr,
+                'batch_size': batch_size,
+                'weight_decay': weight_decay
+            }
+        }
+    
+        # Сохраняем в JSON
+        import json
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        filename = data_manager["models configs"] / f"agent_{agent.id}_training_log_{timestamp}_{id(agent)}.json"
+        with open(filename, 'w') as f:
+            json.dump(training_info, f, indent=2)
+
+        return history_loss
 
     def train_model(self, loaders: List[LoaderTimeLine], agent_manager: AgentManager, 
                     mixed: bool = True):

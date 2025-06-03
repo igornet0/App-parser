@@ -1,13 +1,19 @@
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
+import pandas as pd
+import torch
+
+from backend.Dataset.indicators import Indicators
 
 from .agent import Agent
-from .model_pred import EnhancedTimeSeriesModel
+from .model_pred import PricePredictorModel
 
 class AgentPReadTime(Agent):
     
-    model = EnhancedTimeSeriesModel
+    model = PricePredictorModel
 
-    def _init_model(self, model_parameters: Dict[str, Any]) -> EnhancedTimeSeriesModel:
+    target_column = ["close"]
+
+    def _init_model(self, model_parameters: Dict[str, Any]) -> PricePredictorModel:
         """
         Initializes the model for the agent.
 
@@ -17,21 +23,102 @@ class AgentPReadTime(Agent):
                 and dropout rate.
 
         Returns:
-            EnhancedTimeSeriesModel: An instance of the EnhancedTimeSeriesModel class.
+            PricePredictorModel: An instance of the PricePredictorModel class.
 
         """
-        n_indicators = sum(self.get_shape_indecaters().values())
-        seq_len = model_parameters.get("seq_len", 30)
-        pred_len = model_parameters.get("pred_len", 5)
-        d_model = model_parameters.get("d_model", 64)
+        # n_indicators = sum(self.get_shape_indecaters().values())
+        # input_features = model_parameters.get("input_features", ['close', 'max', 'min', 'volume'])
+        input_features = self.get_count_input_features()
+        seq_len = model_parameters["seq_len"]
+        pred_len = model_parameters["pred_len"]
+        d_model = model_parameters.get("d_model", 128)
         n_heads = model_parameters.get("n_heads", 4)
-        dropout = model_parameters.get("dropout", 0.1)
 
-        self.model = EnhancedTimeSeriesModel(n_indicators=n_indicators,
-                                             seq_len=seq_len,
-                                             pred_len=pred_len,
-                                             d_model=d_model,
-                                             n_heads=n_heads,
-                                             dropout=dropout,)
+        emb_month_size = model_parameters.get("emb_month_size", 8)
+        emb_weekday_size = model_parameters.get("emb_weekday_size", 4)
+
+        lstm_hidden = model_parameters.get("lstm_hidden", 256)
+        num_layers = model_parameters.get("num_layers", 2)
+        dropout = model_parameters.get("dropout", 0.2)
+
+        self.model = PricePredictorModel(pred_len=pred_len,
+                                    seq_len=seq_len,
+                                    num_features=input_features,
+                                    n_heads=n_heads,
+                                    d_model=d_model,
+                                    emb_month_size=emb_month_size, 
+                                    emb_weekday_size=emb_weekday_size, 
+                                    lstm_hidden=lstm_hidden, 
+                                    num_layers=num_layers, 
+                                    dropout=dropout)
 
         return self.model
+    
+    def preprocess_data_for_model(self, data: pd.DataFrame, normalize=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
+        for indecater_name, params in self.get_indecaters().items():
+            data = Indicators.calculate(indecater_name, data.copy(), **params)
+
+        if normalize:
+            data = self.normalize_data(data)
+
+        data = data.dropna()
+        
+        data = self._prepare_datetime(data)
+        
+        column_time = ["month", "day", "hour", "minute", "weekday"]
+
+        drop_columns = ["year", "second"]
+
+        time_features = data[column_time]
+
+        data = data.drop(column_time, axis=1)
+        data = data.drop(drop_columns, axis=1)
+
+        column_output = []
+        column_output.extend(self.model_parameters["input_features"])
+
+        for indecater_name, params in self.get_indecaters().items():
+            indecater = Indicators.collumns_shape.get(indecater_name)
+            collumn = Indicators.paser_collumn_name(indecater, **params)
+            
+            if isinstance(collumn, list):
+                column_output.extend(collumn)
+            else:
+                column_output.append(collumn)
+
+        data = data[column_output]
+
+        return data, time_features
+    
+    def procces_target(self, data: pd.DataFrame) -> pd.DataFrame:
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("Target must be a pandas DataFrame.")
+        
+        return data[self.target_column]
+    
+    def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
+        if self.model is None:
+            raise ValueError("Model is not initialized")
+        
+        torch.save({
+            'epoch': epoch,
+            'indecaters': self.get_indecaters(),
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            "seq_len": self.model_parameters["seq_len"],
+            "pred_len": self.model_parameters["pred_len"],
+            "d_model": self.model_parameters.get("d_model", 128),
+            "n_heads": self.model_parameters.get("n_heads", 4),
+            "emb_month_size": self.model_parameters.get("emb_month_size", 8),
+            "emb_weekday_size": self.model_parameters.get("emb_weekday_size", 4),
+            "lstm_hidden": self.model_parameters.get("lstm_hidden", 256),
+            "num_layers": self.model_parameters.get("num_layers", 2),
+            "dropout": self.model_parameters.get("dropout", 0.2),
+            'loss': best_loss,
+        }, filename)
+    
+    def loss_function(self, y_pred, y_true):
+        y_true = y_true.squeeze(dim=-1) 
+        return self.model.loss_function(y_pred, y_true)

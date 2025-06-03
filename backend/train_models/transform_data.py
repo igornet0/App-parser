@@ -1,4 +1,4 @@
-from typing import List, Generator
+from typing import List, Generator, Tuple
 import copy
 import pandas as pd
 import numpy as np
@@ -37,8 +37,7 @@ class BatchGenerator:
         
         return next(self.generator)
 
-    @staticmethod
-    def batch_generator(loaders: List[LoaderTimeLine], bath_size: int = 10, mixed: bool = False) -> Generator[None, None, List]:
+    def batch_generator(self, loaders: List[LoaderTimeLine], bath_size: int = 10, mixed: bool = False) -> Generator[None, None, List]:
 
         time_line_buffer = []
 
@@ -46,7 +45,10 @@ class BatchGenerator:
 
         while loaders:
             for i, loader in enumerate(loaders):
+                loader_end = len(time_line_buffer)
+
                 for time_line in loader:
+
                     time_line_buffer.append(time_line)
                     if mixed:
                         break
@@ -55,20 +57,18 @@ class BatchGenerator:
                             yield time_line_buffer
                             time_line_buffer = []
 
-                else:
-                    loaders.pop(i)
-
-                if not mixed or not time_line_buffer:
-                    loaders.pop(i)
-                    break
-        
                 if len(time_line_buffer) == bath_size:
                     yield time_line_buffer
                     time_line_buffer = []
+                    continue
+
+                if not len(time_line_buffer) - loader_end or not time_line_buffer:
+                    loaders.pop(i)
+                    break
 
         if time_line_buffer and len(time_line_buffer) == bath_size:
             yield time_line_buffer
-
+    
 class TimeSeriesTransform(IterableDataset):
 
     def __init__(self, loaders: List[LoaderTimeLine], agent: Agent, 
@@ -81,38 +81,75 @@ class TimeSeriesTransform(IterableDataset):
         self.pred_len = agent.model_parameters["pred_len"]
         self.batch_size = batch_size
         self.mixed = mixed
-
-        self._gen = BatchGenerator(loaders=copy.deepcopy(self.loaders), 
-                                          batch_size=self.batch_size, 
-                                          mixed=self.mixed)
+        
+        self.time_line_loaders = {}
+        self._gen = self.create_gen_batch(loaders, batch_size, mixed)
         self._len = None
+
+    def create_time_line_loader(self, agent, data: pd.DataFrame, time_features: pd.DataFrame, pred_len, seq_len) -> Generator[None, None, Tuple]:
+        n_samples = data.shape[0]
+
+        data_values = data.values
+        time_features = time_features.values
+        
+        for i in range(n_samples - pred_len - seq_len):
+            x = data_values[i:i+seq_len]
+            y = agent.procces_target(data).values[i+self.seq_len: i + self.seq_len + self.pred_len]
+
+            time_x = time_features[i:i+self.seq_len]
+
+            yield (x, y, time_x)
+
+    def create_gen_batch(self, loaders: List, batch_size, mixed) -> BatchGenerator:
+        return BatchGenerator(loaders=copy.deepcopy(loaders), 
+                                          batch_size=batch_size, 
+                                          mixed=mixed)
     
+    def load_time_line(self, time_line):
+        for i, data in enumerate(time_line):
+            data, time_features = self.agent.preprocess_data_for_model(data, normalize=True)
+            self.time_line_loaders[i] = self.create_time_line_loader(self.agent, data, time_features, 
+                                                                self.pred_len, self.seq_len)
+
     def __iter__(self) -> iter:
         if self._gen.peek() is None:
-            self._gen = BatchGenerator(loaders=copy.deepcopy(self.loaders),
-                                            batch_size=self.batch_size, 
-                                            mixed=self.mixed)
+            self._gen = self.create_gen_batch(self.loaders, self.batch_size, self.mixed)
+
+        bath_data = []
+
         while self._gen.peek() is not None:
-            # Получаем батч из генератора
-            time_line = next(self._gen)
-            time_line_buffer = []
-            for data in time_line:
 
-                data, time_features = self.agent.preprocess_data(data)
-                n_samples = data.shape[0]
+            time_line = next(self._gen) # [B, 3, seq_len]
 
-                data = data.values
-                time_features = time_features.values
+            if not self.time_line_loaders:
+                # print("time_line_loaders is working")
+                self.load_time_line(time_line)
+            
+            while self.time_line_loaders:
                 
-                for i in range(n_samples - self.pred_len - self.seq_len):
-                    x = data[i:i+self.seq_len]
-                    y = data[i+self.seq_len: i + self.seq_len + self.pred_len]
-                    time_x = time_features[i:i+self.seq_len]
-                    time_line_buffer.append((x, y, time_x))
-                    
-                    if len(time_line_buffer) == self.batch_size:
-                        yield self._process_batch(time_line_buffer)
-                        time_line_buffer = []
+                for i, batch in self.time_line_loaders.items():
+                    batch_end = len(bath_data)
+
+                    for data in batch:
+                        bath_data.append(data)
+
+                        if self.mixed:
+                            break
+
+                        if len(bath_data) == self.batch_size:
+                            yield self._process_batch(bath_data)
+                            bath_data = []
+
+                    if len(bath_data) == self.batch_size:
+                        yield self._process_batch(bath_data)
+                        bath_data = []
+                        continue
+
+                    if not len(bath_data) - batch_end or not bath_data:
+                        self.time_line_loaders.pop(i)
+                        # if not self.time_line_loaders:
+                            # print("time_line_loaders is empty")
+                        break
             
     def __len__(self):
         if self._len is None:
@@ -122,6 +159,7 @@ class TimeSeriesTransform(IterableDataset):
     
     def _process_batch(self, batch):
         # Векторизованная обработка батча
+
         x, y, time_x = zip(*batch)
         return (
             torch.as_tensor(np.stack(x), dtype=torch.float32),

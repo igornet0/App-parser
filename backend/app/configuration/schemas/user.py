@@ -1,21 +1,28 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, EmailStr
 
-class UserCreateResponse(BaseModel):
-    login: str
+class UserLoginResponse(BaseModel):
+    login: Optional[str] = None
     email: Optional[str] = None
     password: str
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     id: int
-    email: str
     login: str
+    email: Optional[EmailStr] = None
+    password: str
     balance: float
+    active: Optional[bool] = True
 
 class TokenData(BaseModel):
+    email: Optional[str] = None
     login: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str
-    refresh_token: str
-    token_type: str
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = "Bearer"
+
+    message: Optional[str] = None

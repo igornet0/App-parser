@@ -35,27 +35,27 @@
 				<nav class="navbar row navbar-expand-md navbar-dark" role="navigation">
 					<div class="container-fluid">
 						<a class="navbar-brand ltc-4279" href="./"><picture><source type="image/webp" srcset="{{ url_for('static', path='/img/lazyload-ph.png') }}" data-srcset="{{ url_for('static', path='/img/logo.webp') }}"><img src="{{ url_for('static', path='/img/lazyload-ph.png') }}" data-src="{{ url_for('static', path='/img/logo.png') }}" alt="logo" class="me-2 lazyload" width="40" height="40"></picture>Agent Trade</a>
+						<button id="nav-toggle" type="button" class="ui-navbar-toggler navbar-toggler border-0 p-0 ms-auto me-md-0" aria-expanded="false" aria-label="Toggle navigation" data-bs-toggle="collapse" data-bs-target=".navbar-33797">
+							<span class="navbar-toggler-icon"><svg height="32" viewBox="0 0 32 32" width="32"><path class="svg-menu-icon " d="m2 9h28m-28 7h28m-28 7h28"></path></svg></span>
+						</button>
 						<div class="collapse navbar-collapse navbar-16305 navbar-33797">
 							<ul class="site-navigation nav navbar-nav ms-auto scroll-fx-rotate-in">
 								<li class="nav-item">
 									<a href="./" class="nav-link a-btn ltc-4279">Главная</a>
 								</li>
 								<li class="nav-item">
-									<a href="./" class="nav-link a-btn ltc-4279">Личный кабинет</a>
+									<a href="./profile_page/" class="nav-link a-btn ltc-4279">Личный кабинет</a>
 								</li>
 								<li class="nav-item">
-									<a href="./team/" class="nav-link a-btn ltc-4279">Команда</a>
+									<a href="./team_page/" class="nav-link a-btn ltc-4279">Команда</a>
 								</li>
 								<li class="nav-item">
-									<a href="./contact/" class="nav-link a-btn ltc-4279">Контакт</a>
+									<a href="./contact_page/" class="nav-link a-btn ltc-4279">Контакт</a>
 								</li>
 							</ul>
 						</div>
 					</div>
 				</nav>
-				<button id="nav-toggle" type="button" class="ui-navbar-toggler navbar-toggler border-0 p-0 ms-auto me-md-0" aria-expanded="false" aria-label="Toggle navigation" data-bs-toggle="collapse" data-bs-target=".navbar-33797">
-					<span class="navbar-toggler-icon"><svg height="32" viewBox="0 0 32 32" width="32"><path class="svg-menu-icon " d="m2 9h28m-28 7h28m-28 7h28"></path></svg></span>
-				</button>
 			</div>
 		</div>
 	</div>
@@ -69,7 +69,7 @@
 						Доверьте свои инвестиции нейросетям нового поколения. Наша система анализирует рынок 24/7 и совершает сделки с максимальной эффективностью.
 					</h3>
 					<div class="text-center">
-						<a href="./" class="btn btn-rd btn-lg btn-d mt-lg-2 mb-lg-2 pt-lg-3 pb-lg-3">Начать сейчас</a>
+						<a href="./profile_page/" class="btn btn-rd btn-lg btn-d mt-lg-2 mb-lg-2 pt-lg-3 pb-lg-3">Начать сейчас</a>
 					</div>
 				</div>
 			</div>
@@ -236,7 +236,7 @@
 										Экспорт отчетов в PDF/CSV
 									</p>
 								</li>
-							</ul><a href="./pricing/" class="btn white-btn btn-lg btn-c-4279 mt-lg-4 ms-lg-5 mb-lg-5">Начать сейчас</a>
+							</ul><a href="./pricing_page/" class="btn white-btn btn-lg btn-c-4279 mt-lg-4 ms-lg-5 mb-lg-5">Начать сейчас</a>
 						</div>
 						<div class="col-md-12 offset-lg-0 col-lg-7 d-sm-block d-none">
 							<picture><source type="image/webp" srcset="{{ url_for('static', path='/img/lazyload-ph.png') }}" data-srcset="{{ url_for('static', path='/img/app-screenshot-hero.webp') }}" ><img src="{{ url_for('static', path='/img/lazyload-ph.png') }}" data-src="img/app-screenshot-hero.jpg" class="img-fluid float-lg-none cta-card-img lazyload" alt="App Screenshot" width="595" height="351"></picture>
@@ -271,17 +271,17 @@
 			<div class="col-sm-6 col-lg-2 offset-lg-1 col-md-3 mb-3">
 				<h4 class="text-sm-start text-start tc-4279 mb-4">
 					About
-				</h4><a href="./team/" class="a-btn a-block">Team</a><a href="./pricing/" class="a-btn a-block">Pricing</a>
+				</h4><a href="./team_page/" class="a-btn a-block">Team</a><a href="./pricing_page/" class="a-btn a-block">Pricing</a>
 			</div>
 			<div class="col-md-3 col-sm-6 col-lg-2 mb-3">
 				<h4 class="text-sm-start text-start tc-4279 mb-4">
 					Support
-				</h4><a href="./" class="a-btn a-block">Knowledge Base</a><a href="./" class="a-btn a-block">Contact</a><a href="./faq/" class="a-btn a-block">FAQ</a>
+				</h4><a href="./" class="a-btn a-block">Knowledge Base</a><a href="./contact_page/" class="a-btn a-block">Contact</a><a href="./faq/" class="a-btn a-block">FAQ</a>
 			</div>
 			<div class="col-md-3 col-sm-6 col-lg-2 mb-3">
 				<h4 class="text-sm-start text-start tc-4279 mb-4">
 					Community
-				</h4><a href="./" class="a-btn a-block">Forum</a><a href="./faq/" class="a-btn a-block">Newsletter</a>
+				</h4><a href="./" class="a-btn a-block">Forum</a><a href="./" class="a-btn a-block">Newsletter</a>
 			</div>
 			<div class="col-md-3 col-sm-6 col-lg-2">
 				<h4 class="text-sm-start text-start tc-4279 mb-4">

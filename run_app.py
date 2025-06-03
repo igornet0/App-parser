@@ -16,6 +16,6 @@ if __name__ == "__main__":
         port=settings.run.port,
         workers=4,
         reload=True,
-        ssl_keyfile="./backend/ssl/key.pem",
-        ssl_certfile="./backend/ssl/cert.pem"
+        ssl_keyfile=settings.security.private_key_path,
+        ssl_certfile=settings.security.certificate_path
     )
