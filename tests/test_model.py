@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-from backend.MMM.model_trade import (  # Предполагается, что модели находятся в файле models.py
+from backend.MMM.models.model_trade import (  # Предполагается, что модели находятся в файле models.py
     OHLCV_MLP,
     OHLCV_LSTM,
     OHLCV_TCNN,

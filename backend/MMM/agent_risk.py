@@ -1,16 +1,13 @@
-from typing import Dict, Any, Tuple, List, Generator
+from typing import Dict, Any, Tuple
 import pandas as pd
-from torch.amp import autocast, GradScaler
-import numpy as np
 import torch
-import json
 
 from backend.Dataset.indicators import Indicators
 
 from .agent import Agent
 from .models import PricePredictorModel
 
-class AgentPReadTime(Agent):
+class AgentRisk(Agent):
     
     model = PricePredictorModel
 
@@ -57,86 +54,49 @@ class AgentPReadTime(Agent):
 
         return self.model
     
-    def init_model_to_train(self, base_lr, weight_decay, 
-                            is_cuda, effective_mp,
-                            patience):
-        # Оптимизатор и планировщик
-        optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=base_lr * self.lr_factor,
-            weight_decay=weight_decay,
-            fused=is_cuda
-        )
+    def preprocess_data_for_model(self, data: pd.DataFrame, normalize=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-        # Инициализация GradScaler только при необходимости
-        scaler = GradScaler(enabled=effective_mp)
+        for indecater_name, params in self.get_indecaters().items():
+            data = Indicators.calculate(indecater_name, data.copy(), **params)
 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, 
-            "min",
-            factor=0.5,
-            patience=patience
-        )
+        if normalize:
+            data = self.normalize_data(data)
 
-        return optimizer, scheduler, scaler
-    
-    def create_time_line_loader(self, data: pd.DataFrame, pred_len, seq_len) -> Generator[None, None, Tuple]:
-
-        data, y, time_features = self.preprocess_data_for_model(data)
-
-        n_samples = data.shape[0]
-
-        for i in range(n_samples - pred_len - seq_len):
-            new_x = data[i:i+seq_len]
-            new_y = y[i+seq_len: i + seq_len + pred_len]
-            time_x = time_features[i:i+seq_len]
-
-            yield new_x, new_y, time_x
-    
-    def preprocess_data_for_model(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-
-        data = super().preprocess_data_for_model(data)
-
-        column_time = self.get_column_time()
+        data = data.dropna()
+        
+        data = self._prepare_datetime(data)
+        
+        column_time = ["month", "day", "hour", "minute", "weekday"]
 
         drop_columns = ["second"]
-        
-        if self.mod == "trade":
-            data = data[-self.model_parameters["seq_len"]:]
 
         time_features = data[column_time]
-
-        if self.mod == "test":
-            tatget = self.procces_target(self.mod, data, self.target_column)
-            return [data, tatget, time_features]
 
         column_time.extend(drop_columns)
 
         data = data.drop(column_time, axis=1)
 
-        column_output = self.get_column_output()
+        column_output = []
+        column_output.extend(self.model_parameters["input_features"])
+
+        for indecater_name, params in self.get_indecaters().items():
+            indecater = Indicators.collumns_shape.get(indecater_name)
+            collumn = Indicators.paser_collumn_name(indecater, **params)
+            
+            if isinstance(collumn, list):
+                column_output.extend(collumn)
+            else:
+                column_output.append(collumn)
 
         data = data[column_output]
 
-        if self.mod == "train":
-            tatget = self.procces_target(self.mod, data, self.target_column)
-            return [data.values, tatget, time_features.values]
-        
-        bath = [data.values, time_features.values]
-
-        return self.process_batch(bath)
-
-    @staticmethod
-    def procces_target(mod, data: pd.DataFrame, target_column) -> pd.DataFrame:
+        return data, time_features
+    
+    def procces_target(self, data: pd.DataFrame) -> pd.DataFrame:
         if not isinstance(data, pd.DataFrame):
             raise ValueError("Target must be a pandas DataFrame.")
         
-        if mod == "test":
-            target_column_new = ["datetime"]
-            target_column_new.extend(target_column)
-            return data[target_column_new]
-        
-        return data[target_column].values
+        return data[self.target_column]
     
     def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
         if self.model is None:
@@ -159,31 +119,6 @@ class AgentPReadTime(Agent):
             "dropout": self.model_parameters.get("dropout", 0.2),
             'loss': best_loss,
         }, filename)
-
-    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay, filename):
-        training_info = {
-            'epochs_trained': epoch + 1,
-            'loss_history': history_loss,
-            'best_loss': best_loss,
-            'indecaters': self.get_indecaters(),
-            "seq_len": self.model_parameters["seq_len"],
-            "pred_len": self.model_parameters["pred_len"],
-            "d_model": self.model_parameters.get("d_model", 128),
-            "n_heads": self.model_parameters.get("n_heads", 4),
-            "emb_month_size": self.model_parameters.get("emb_month_size", 8),
-            "emb_weekday_size": self.model_parameters.get("emb_weekday_size", 4),
-            "lstm_hidden": self.model_parameters.get("lstm_hidden", 256),
-            "num_layers": self.model_parameters.get("num_layers", 2),
-            "dropout": self.model_parameters.get("dropout", 0.2),
-            'hyperparams': {
-                'base_lr': base_lr,
-                'batch_size': batch_size,
-                'weight_decay': weight_decay
-            }
-        }
-    
-        with open(filename, 'w') as f:
-            json.dump(training_info, f, indent=2)
     
     def loss_function(self, y_pred, y_true):
         y_true = y_true.squeeze(dim=-1) 

@@ -23,6 +23,8 @@ class Coin(Base):
     name: Mapped[str] = mapped_column(String(50), unique=True)
     price_now: Mapped[float] = mapped_column(Float, default=0)
 
+    parsed: Mapped[bool] = mapped_column(Boolean, default=True)
+
     timeseries: Mapped[list['Timeseries']] = relationship(back_populates='coin')
     portfolio: Mapped[list['Portfolio']] = relationship(back_populates='coin')
     transaction: Mapped[list['Transaction']] = relationship(back_populates='coin')

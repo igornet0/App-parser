@@ -16,6 +16,16 @@ class Indicators:
         "MFI": "MFI{period}",
         "CRV": "CRV{period}{trading_days}"
     }
+
+    collumns_on = {
+        'SMA': True,
+        'EMA': True,
+        'VWAP': True
+    }
+
+    @classmethod
+    def check_indecater_on(cls, name_indecater: str) -> bool:
+        return cls.collumns_on.get(name_indecater, False)
     
     @staticmethod
     def _check_data(data: pd.DataFrame) -> pd.DataFrame:
@@ -295,10 +305,11 @@ class Indicators:
         return shapes.get(indicator_name, lambda: None)()
     
     @staticmethod
-    def normalize(data: pd.DataFrame, column_indecater:str, period=14):
-        min_col = data[column_indecater].rolling(period, min_periods=1).min()
-        max_col = data[column_indecater].rolling(period, min_periods=1).max()
-        normalized = (data[column_indecater] - min_col) / (max_col - min_col + 1e-8)
+    def normalize(data: pd.DataFrame, column_indecater:str, column: str = "close"):
+        # min_col = data[column_indecater].rolling(period, min_periods=1).min()
+        # max_col = data[column_indecater].rolling(period, min_periods=1).max()
+        # normalized = (data[column_indecater] - min_col) / (max_col - min_col + 1e-8)
+        normalized = (data[column_indecater] - data[column]) / data[column] * 100
 
         return normalized
     
@@ -351,7 +362,7 @@ class Indicators:
             collumn_name = collumn_name.replace("{period}", str(kwargs['period']))
 
             kwargs['column_indecater'] = collumn_name
-            kwargs.pop("column", None)
+            kwargs.pop("period", None)
 
         result = indicators_normalized[indicator_name](data, **kwargs)
 

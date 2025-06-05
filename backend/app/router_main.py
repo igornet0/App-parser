@@ -2,7 +2,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Request, HTTPException, Depends
 
-from core import User
+from core.database import User
 from core.database.orm_query import orm_get_coin_by_name
 from backend.app.configuration import Server, CoinResponse
 

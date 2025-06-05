@@ -19,6 +19,7 @@ import torch
 from core import data_manager
 from core.utils.clear_datasets import *
 from core.utils.tesseract_img_text import RU_EN_timetravel
+from .indicators import Indicators
 from .loader import LoaderTimeLine
 
 import logging
@@ -221,10 +222,10 @@ class DatasetTimeseries(Dataset):
         return count
             
     @timer
-    def sort(self, column: str = "datetime"):
+    def sort(self, column: str = "datetime", ascending: bool = True):
         self.dataset = self.dataset.sort_values(by=column, 
                                         ignore_index=True,
-                                        ascending=True)
+                                        ascending=ascending)
         return self
 
     @timer
@@ -273,7 +274,7 @@ class DatasetTimeseries(Dataset):
     def duplicated(self):
         return self.dataset[self.dataset.duplicated(keep=False)]
 
-    def plot_series(self, dataset: list | None = None, param: str = "close", indicators: dict | None = None) -> None:
+    def plot_series(self, dataset: list | None = None, y: list | None = None, param: str = "close", indicators: dict | None = None) -> None:
         # Determine main dataset, dates, and data
         if dataset is None:
             main_data = self.dataset[param]
@@ -299,7 +300,9 @@ class DatasetTimeseries(Dataset):
                 plt.show()
             else:
                 plt.figure(figsize=(10, 5))
-                plt.plot(main_dates, main_data, marker='o')
+                plt.plot(main_dates, main_data, marker='o', label="main_data")
+                if not y is None:
+                    plt.plot(y["datetime"], y["close"], marker='x', label="y")
                 plt.xlabel('Время')
                 plt.ylabel('Цена')
                 plt.xticks(rotation=45)
@@ -325,6 +328,9 @@ class DatasetTimeseries(Dataset):
         # Plot main data and on=True indicators on the first subplot
         ax_main = axes[0]
         ax_main.plot(main_dates, main_data, label=param, marker='o' if dataset is not None else None)
+        if not y is None:
+            ax_main.plot(y["datetime"], y["close"], label="close", marker='x' if y is not None else None)
+
         for name, ind in on_indicators.items():
             ax_main.plot(main_dates, ind['data'], label=name)
 
@@ -336,7 +342,12 @@ class DatasetTimeseries(Dataset):
         # Plot off_indicators on subsequent subplots
         for i, (name, ind) in enumerate(off_indicators.items(), start=1):
             ax = axes[i]
-            ax.plot(main_dates, ind['data'], label=name)
+            if isinstance(ind["data"], dict):
+                for key, value in ind["data"].items():
+                    ax.plot(main_dates, value, label=key)
+            else:
+                ax.plot(main_dates, ind["data"], label=name)
+
             ax.grid(True)
             ax.legend()
             ax.set_ylabel(name)
@@ -355,7 +366,10 @@ class DatasetTimeseries(Dataset):
         return self.dataset.loc[self.dataset['open'] != "x"]
     
     def get_datetime_last(self) -> datetime:
-        return self.dataset['datetime'].iloc[-1]
+        return self.dataset['datetime'].max()
+    
+    def get_last_row(self) -> pd.Series:
+        return self.dataset[self.dataset['datetime'] == self.get_datetime_last()]
 
 
 class NewsDataset(Dataset):

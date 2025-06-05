@@ -1,8 +1,6 @@
 from typing import List, Generator, Tuple
 import copy
 import pandas as pd
-import numpy as np
-import torch
 from torch.utils.data import IterableDataset
 
 from backend.Dataset import LoaderTimeLine
@@ -86,19 +84,8 @@ class TimeSeriesTransform(IterableDataset):
         self._gen = self.create_gen_batch(loaders, batch_size, mixed)
         self._len = None
 
-    def create_time_line_loader(self, agent, data: pd.DataFrame, time_features: pd.DataFrame, pred_len, seq_len) -> Generator[None, None, Tuple]:
-        n_samples = data.shape[0]
-
-        data_values = data.values
-        time_features = time_features.values
-        
-        for i in range(n_samples - pred_len - seq_len):
-            x = data_values[i:i+seq_len]
-            y = agent.procces_target(data).values[i+self.seq_len: i + self.seq_len + self.pred_len]
-
-            time_x = time_features[i:i+self.seq_len]
-
-            yield (x, y, time_x)
+    def get_loaders(self):
+        return self.loaders
 
     def create_gen_batch(self, loaders: List, batch_size, mixed) -> BatchGenerator:
         return BatchGenerator(loaders=copy.deepcopy(loaders), 
@@ -107,9 +94,7 @@ class TimeSeriesTransform(IterableDataset):
     
     def load_time_line(self, time_line):
         for i, data in enumerate(time_line):
-            data, time_features = self.agent.preprocess_data_for_model(data, normalize=True)
-            self.time_line_loaders[i] = self.create_time_line_loader(self.agent, data, time_features, 
-                                                                self.pred_len, self.seq_len)
+            self.time_line_loaders[i] = self.agent.create_time_line_loader(data, self.pred_len, self.seq_len)
 
     def __iter__(self) -> iter:
         if self._gen.peek() is None:
@@ -137,18 +122,18 @@ class TimeSeriesTransform(IterableDataset):
                             break
 
                         if len(bath_data) == self.batch_size:
-                            yield self._process_batch(bath_data)
+                            # yield self._process_batch(bath_data)
+                            yield self.agent.process_batch(bath_data)
                             bath_data = []
 
                     if len(bath_data) == self.batch_size:
-                        yield self._process_batch(bath_data)
+                        # yield self._process_batch(bath_data)
+                        yield self.agent.process_batch(bath_data)
                         bath_data = []
                         continue
 
                     if not len(bath_data) - batch_end or not bath_data:
                         self.time_line_loaders.pop(i)
-                        # if not self.time_line_loaders:
-                            # print("time_line_loaders is empty")
                         break
             
     def __len__(self):
@@ -156,13 +141,3 @@ class TimeSeriesTransform(IterableDataset):
             self._len = len([data for data in self])
 
         return self._len
-    
-    def _process_batch(self, batch):
-        # Векторизованная обработка батча
-
-        x, y, time_x = zip(*batch)
-        return (
-            torch.as_tensor(np.stack(x), dtype=torch.float32),
-            torch.as_tensor(np.stack(y), dtype=torch.float32),
-            torch.as_tensor(np.stack(time_x), dtype=torch.float32)
-        )

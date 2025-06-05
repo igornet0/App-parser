@@ -42,7 +42,8 @@ class SettingsTrade(BaseSettings):
 
     # Модели ML
     MODELS_DIR: Path = BASE_DIR / "models"
-    MODELS_CONFIGS_PATH: Path = MODELS_DIR / "model_configs"
+    MODELS_CONFIGS_PATH: Path = MODELS_DIR / "configs"
+    MODELS_LOGS_PATH: Path = MODELS_DIR / "logs"
     MODEL_PTH_PATH: Path = MODELS_DIR / "models_pth"
     # ACTIVE_MODEL: FilePath = TRAINED_MODELS_PATH / "current_model.pkl"
 
@@ -61,6 +62,7 @@ class DataManager:
             "trach": self.settings.TRACH_PATH,
             "img trach": self.settings.IMG_TRACH,
             "models": self.settings.MODELS_DIR,
+            "models logs": self.settings.MODELS_LOGS_PATH,
             "models configs": self.settings.MODELS_CONFIGS_PATH,
             "models pth": self.settings.MODEL_PTH_PATH,
             }

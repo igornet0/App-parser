@@ -28,11 +28,11 @@ class AgentManager:
     }        
 
     def __init__(self, agent_type: str, config: dict = {}, count_agents: int = 1, schema_RP: dict = {},
-                 RM_I: bool = False):
+                 RP_I: bool = False):
         self.agent_type = agent_type
         self.agent = {}
         self._multi_agent = False
-        self.RM_I = RM_I
+        self.RP_I = RP_I
 
         self._init_config(count_agents, config, schema_RP)
 
@@ -57,6 +57,7 @@ class AgentManager:
                 for i in range(count_agents):
                     agent = self.create_agent(copy.deepcopy(agent_config), schema_RP)
                     agent.set_id(i + 1)
+                    agent.set_mode(agent_config.get("mod", "test"))
                     self.agent.append(agent)
 
     def create_agent(self, agent: dict, schema_RP: dict = {}) -> Agent:
@@ -67,8 +68,9 @@ class AgentManager:
                 timetravel=agent["timetravel"],
                 discription=agent["discription"],
                 model_parameters=agent["model_parameters"],
+                data_normalize=agent["data_normalize"],
                 shema_RP=schema_RP,
-                RM_I=self.RM_I
+                RP_I=self.RP_I
             )
     
     @classmethod
@@ -94,6 +96,7 @@ class AgentManager:
             for i in range(count_agents):
                 agent = self.create_agent(copy.deepcopy(agent_config), schema_RP)
                 agent.set_id(i + 1)
+                agent.set_mode(agent_config.get("mod", "test"))
                 agents.setdefault(agent.get_timetravel(), [])
                 agents[agent.get_timetravel()].append(agent)
         

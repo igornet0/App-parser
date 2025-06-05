@@ -1,6 +1,8 @@
 import torch
 import copy
-from typing import Dict, Any, Union, Generator, Tuple
+import json
+from typing import Dict, Any, Union, Generator, Tuple, Literal, List, Union
+import numpy as np
 import pandas as pd
 
 from backend.Dataset.indicators import Indicators
@@ -25,11 +27,13 @@ class Agent:
     """
 
     model = None
+    mod: Literal["train", "trade", "test"] = "test"
 
     def __init__(self, name: str, indecaters: Dict[str, Dict[str, Any]], timetravel: str = "5m",
                  discription: str = "Agent", model_parameters: Dict[str, Any] = {},
+                 data_normalize: bool = False,
                  shema_RP: Dict[str, Generator[None, None, Any]] = {},
-                 RM_I: bool = False):
+                 RP_I: bool = False):
         """
         mod_RP - Random Parameters in Indecaters
         """
@@ -37,14 +41,16 @@ class Agent:
         self.id = 1
         self.name = name
         self.indecaters = copy.deepcopy(indecaters)
+
         if "RP" in self.name:
             self.indecaters = self.replace_question_marks(shema_RP, self.indecaters)
 
-        if RM_I:
+        if RP_I:
             self.indecaters = self.indecater_with_random()
         
         self.timetravel = timetravel
         self.discription = discription
+        self.data_normalize = data_normalize
         self._model_parameters = model_parameters
         self.lr_factor = 1
         self.history = []
@@ -56,6 +62,9 @@ class Agent:
     def set_id(self, id: int):
         self.id = id
 
+    def set_mode(self, new_mode: Literal["train", "trade", "test"]):
+        self.mod = new_mode
+
     def indecater_with_random(self):
         new_indicators = {}
         for name, indicator in self.indecaters.items():
@@ -63,6 +72,17 @@ class Agent:
                 new_indicators[name] = indicator
 
         return new_indicators
+    
+    def create_time_line_loader(self, data: pd.DataFrame, pred_len, seq_len) -> Generator[None, None, Tuple]:
+
+        data = self.preprocess_data_for_model(data)
+
+        n_samples = data.shape[0]
+
+        for i in range(n_samples - pred_len - seq_len):
+            new_x = data[i:i+seq_len]
+
+            yield new_x,
 
     def _init_model(self, model_parameters: Dict[str, Any]) -> None:
         return None
@@ -75,6 +95,36 @@ class Agent:
     
     def set_indicators(self, indicators: Dict[str, Dict[str, Any]]):
         self.indecaters = indicators
+
+    def get_indecaters_column(self) -> List[str]:
+        column_output = []
+        for indecater_name, params in self.get_indecaters().items():
+            indecater = Indicators.collumns_shape.get(indecater_name)
+            collumn = Indicators.paser_collumn_name(indecater, **params)
+            
+            if isinstance(collumn, list):
+                column_output.extend(collumn)
+            else:
+                column_output.append(collumn)
+        
+        return column_output
+    
+    def get_indecaters_dict(self) -> Dict[str, Union[List, str]]:
+        column_output = {}
+        for indecater_name, params in self.get_indecaters().items():
+            indecater = Indicators.collumns_shape.get(indecater_name)
+            collumn = Indicators.paser_collumn_name(indecater, **params)
+            
+            column_output[indecater_name] = collumn
+        
+        return column_output
+
+    def get_column_output(self) -> List[str]:
+        column_output = []
+        column_output.extend(self.model_parameters["input_features"])
+        column_output.extend(self.get_indecaters_column())
+        
+        return column_output
 
     @staticmethod
     def replace_question_marks(schema: Dict[str, Generator[None, None, Any]], 
@@ -111,6 +161,26 @@ class Agent:
     def get_datetime_format(self) -> Union[str, None]:
         return self.model_parameters.get("datetime_format", "")
     
+    def get_column_time(self) -> List[str]:
+        dt_format = self.get_datetime_format()
+        dt_format = dt_format.split("%")
+
+        def clear_fromat(x):
+            for c in [" ", "-", ":"]:
+                x = x.replace(c, "")
+            return x
+
+        dt_format = map(clear_fromat, dt_format)
+
+        dt_key = {"Y": "year", 
+                  "m": "month", 
+                  "d": "day", 
+                  "H": "hour", 
+                  "M":"minute", 
+                  "w": "weekday"}
+        
+        return [dt_key[key] for key in dt_format if key in dt_key]
+    
     def get_count_input_features(self) -> int:
         return sum([sum(self.get_shape_indecaters().values()), 
                     self.get_datetime_format().count("%"),
@@ -118,6 +188,11 @@ class Agent:
 
     def get_count_output_features(self) -> int:
         return len(self.model_parameters["output_features"])
+    
+    def init_model_to_train(self, base_lr, weight_decay, 
+                            is_cuda, effective_mp,
+                            patience):
+        pass
     
     def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
         if self.model is None:
@@ -155,8 +230,6 @@ class Agent:
 
         data["weekday"] = data["weekday"].apply(lambda x: 7 if x == 0 else x)
 
-        data.drop("datetime", axis=1, inplace=True)
-
         return data
     
     def normalize_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -170,7 +243,22 @@ class Agent:
 
         return data
 
-    def preprocess_data_for_model(self, data: pd.DataFrame, normalize=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def preprocess_data_for_model(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        
+        for indecater_name, params in self.get_indecaters().items():
+            data = Indicators.calculate(indecater_name, data.copy(), **params)
+
+        if self.data_normalize:
+            data = self.normalize_data(data)
+
+        data = data.dropna()
+        
+        data = self._prepare_datetime(data)
+
+        if self.mod == "test":
+            return data
+        
+        data.drop("datetime", axis=1, inplace=True)
 
         return data
     
@@ -185,6 +273,14 @@ class Agent:
 
         return target
     
+    def process_batch(self, batch: List[np.ndarray]):
+        # Векторизованная обработка батча
+        tranfor_data = lambda x: torch.as_tensor(np.stack(x), dtype=torch.float32)
+        # wraper_nath = lambda data: map(tranfor_data, data)
+        # return list(map(wraper_nath, zip(*batch)))
+        
+        return list(map(tranfor_data, zip(*batch)))
+            
     def loss_function(self, y_pred, y_true):
         return self.model.loss_function(y_pred, y_true)
     
@@ -208,12 +304,15 @@ class Agent:
             self.history.pop(0)
 
         return self.history
-
-    def trade(self, data):
+    
+    def trade(self, data: pd.DataFrame):
         if self.model is None:
             raise ValueError("Model is not set. Please set the model before calling trade.")
         
         self.update_data_buffer(data)
+
+        if self.mod == "trade":
+            data = self.preprocess_data_for_model(data)
 
         action = self.model(*data)
         self.update_history(action, data)
@@ -226,6 +325,22 @@ class Agent:
             result += f"\t{indecater_name}: {params}\n"
 
         return result
+    
+    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay, filename):
+        training_info = {
+            'epochs_trained': epoch + 1,
+            'loss_history': history_loss,
+            'best_loss': best_loss,
+            'indecaters': self.get_indecaters(),
+            'hyperparams': {
+                'base_lr': base_lr,
+                'batch_size': batch_size,
+                'weight_decay': weight_decay
+            }
+        }
+    
+        with open(filename, 'w') as f:
+            json.dump(training_info, f, indent=2)
     
     def __str__(self):
         return f"Agent: {self.name} - {self.discription}\nIndecaters:\n{self.get_str_indecaters()}"
