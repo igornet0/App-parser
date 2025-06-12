@@ -1,11 +1,11 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from core.settings import settings
-from core import data_manager
 
 logging.getLogger('passlib').setLevel(logging.ERROR)
 
 def setup_logging():
+    from core import data_helper
 
     # Очищаем все существующие обработчики
     for logger in [logging.getLogger(name) for name in logging.root.manager.loggerDict]:
@@ -24,24 +24,24 @@ def setup_logging():
     console_handler.setLevel(logging.INFO)
     
     # Общий файловый хендлерs
-    common_handler = RotatingFileHandler(data_manager["log"] / "all.log", maxBytes=1e6, backupCount=3)
+    common_handler = RotatingFileHandler(data_helper["log"] / "all.log", maxBytes=1e6, backupCount=3)
     common_handler.setFormatter(formatter)
 
     app_fastapi_logger = logging.getLogger("app_fastapi")
-    app_fastapi_handler = RotatingFileHandler(data_manager["log"] / "app_fastapi.log", maxBytes=1e6, backupCount=3)
+    app_fastapi_handler = RotatingFileHandler(data_helper["log"] / "app_fastapi.log", maxBytes=1e6, backupCount=3)
     app_fastapi_handler.setFormatter(formatter)
     app_fastapi_handler.setLevel(logging.DEBUG)
     app_fastapi_logger.addHandler(app_fastapi_handler)
 
     # Настройка для parser_logger
     parser_logger = logging.getLogger("parser_logger")
-    parser_handler = RotatingFileHandler(data_manager["log"] / "parser_logger.log", maxBytes=1e6, backupCount=3)
+    parser_handler = RotatingFileHandler(data_helper["log"] / "parser_logger.log", maxBytes=1e6, backupCount=3)
     parser_handler.setFormatter(formatter)
     parser_handler.setLevel(logging.DEBUG)
     parser_logger.addHandler(parser_handler)
 
     process_logger = logging.getLogger("process_logger")
-    process_handler = RotatingFileHandler(data_manager["log"] / "process_logger.log", maxBytes=1e6, backupCount=3)
+    process_handler = RotatingFileHandler(data_helper["log"] / "process_logger.log", maxBytes=1e6, backupCount=3)
     process_handler.setFormatter(formatter)
     process_handler.setLevel(logging.DEBUG)
     process_logger.addHandler(process_handler)
@@ -51,10 +51,10 @@ def setup_logging():
     root_logger.addHandler(common_handler)
 
     # Настройка логгеров Uvicorn
-    # uvicorn_handler = RotatingFileHandler(sdata_manager["log"] / "uvicorn.log", maxBytes=1e6, backupCount=3)
+    # uvicorn_handler = RotatingFileHandler(sdata_helper["log"] / "uvicorn.log", maxBytes=1e6, backupCount=3)
     # uvicorn_handler.setFormatter(formatter)
 
-    # uvicorn_access_handler = RotatingFileHandler(data_manager["log"] / "uvicorn_access.log", maxBytes=5e6, backupCount=5)
+    # uvicorn_access_handler = RotatingFileHandler(data_helper["log"] / "uvicorn_access.log", maxBytes=5e6, backupCount=5)
     # access_formatter = logging.Formatter('%(asctime)s] %(name)-35s:%(client_addr)s - "%(request_line)s" %(status_code)s')
     # uvicorn_access_handler.setFormatter(access_formatter)
 

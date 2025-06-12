@@ -7,8 +7,7 @@ from datetime import datetime, timedelta, timezone
 import re
 
 from core.settings import settings
-from core.database import User
-from core.database.orm_query import orm_get_user_by_login
+from core.database import User, orm_get_user_by_login
 
 from backend.app.configuration import TokenData, Server, UserResponse, UserLoginResponse
 
@@ -170,3 +169,35 @@ async def get_current_user(token: Annotated[str, Depends(Server.oauth2_scheme)],
         raise credentials_exception
     
     return user
+
+async def verify_authorization(token: str = Depends(Server.oauth2_scheme), 
+                               session: AsyncSession = Depends(Server.get_db)):
+    
+    payload = get_current_token_payload(token)
+    validate_token_type(payload, "access")
+
+    user = await get_user_by_token_sub(payload, session)
+    
+    if user.active:
+        return user
+    
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="inactive user",
+    )
+
+async def verify_authorization_admin(token: str = Depends(Server.oauth2_scheme), 
+                               session: AsyncSession = Depends(Server.get_db)):
+    
+    payload = get_current_token_payload(token)
+    validate_token_type(payload, "access")
+
+    user = await get_user_by_token_sub(payload, session)
+    
+    if user.active and user.role == "admin":
+        return user
+    
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="inactive user",
+    )

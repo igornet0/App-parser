@@ -11,9 +11,8 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker
 )
 
-from core.database.models import Base
+from core.database.models.main_models import Base
 from core.settings import settings
-from core import data_manager
 
 import logging
 
@@ -100,6 +99,7 @@ class Database:
                 await session.close()
 
     async def _create_tables(self):
+        from core import data_helper
         from core.database.orm_query import orm_add_coin
 
         async with self.engine.begin() as conn:
@@ -107,7 +107,7 @@ class Database:
             await conn.run_sync(Base.metadata.create_all)
 
         async with self.async_session() as session:
-            for coin in data_manager.coin_list:
+            for coin in data_helper.coin_list:
                 logger.info(f"Adding coin {coin}")
                 await orm_add_coin(session, coin)
 

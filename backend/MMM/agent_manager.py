@@ -1,7 +1,6 @@
 import copy
 from typing import List
 
-from core import data_manager
 from .agent_pread_time import AgentPReadTime, Agent
 from .agent_trade_time import AgentTradeTime
 
@@ -20,7 +19,7 @@ class AgentManager:
         schema_RP (dict): A dictionary containing the schema for the agent.
     """
     
-    _agents = {
+    type_agents = {
         "AgentPReadTime": AgentPReadTime,
         "AgentTradeTime": AgentTradeTime,
         # "AgentPReadTimeMulti": AgentPReadTimeMulti,
@@ -29,6 +28,7 @@ class AgentManager:
 
     def __init__(self, agent_type: str, config: dict = {}, count_agents: int = 1, schema_RP: dict = {},
                  RP_I: bool = False):
+        
         self.agent_type = agent_type
         self.agent = {}
         self._multi_agent = False
@@ -45,7 +45,7 @@ class AgentManager:
             raise ValueError("Agents not found in config")
 
         if self._multi_agent:
-            self.agent = self.load_multi_agent(count_agents, schema_RP)
+            self.agent = self.load_multi_agent(count_agents, config, schema_RP)
         else:
             agent_config = config.get("agents")[0]
 
@@ -75,17 +75,17 @@ class AgentManager:
     
     @classmethod
     def get_agent(cls, agent_type: str) -> Agent:
-        if agent_type in cls._agents:
-            return cls._agents[agent_type]
+        if agent_type in cls.type_agents:
+            return cls.type_agents[agent_type]
         else:
             raise ValueError(f"Agent {agent_type} not found in available models.")
         
     def get_agents(self) -> List[Agent]:
         return self.agent
     
-    def load_multi_agent(self, count_agents: int, schema_RP) -> List[Agent]:
+    def load_multi_agent(self, count_agents: int, config_model:dict, schema_RP: dict) -> List[Agent]:
+        
         logger.info(f"Loading multi agent: {self.agent_type}")
-        config_model = data_manager.get_model_config(self.agent_type)
 
         if len(config_model.get("agents")) > 1:
             self._multi_agent = True

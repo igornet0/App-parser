@@ -1,8 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import logo from '../img/logo.webp'; 
-import { Line, Doughnut } from 'react-chartjs-2';
 import { 
-  Chart as ChartJS, 
   CategoryScale, 
   LinearScale, 
   PointElement, 
@@ -13,8 +10,19 @@ import {
   ArcElement,
   Filler
 } from 'chart.js';
+import { Chart as ChartJS } from 'chart.js';
 
-// Регистрируем компоненты Chart.js
+import ProfileSidebar from '../components/profile/ProfileSidebar';
+import UserGreeting from '../components/profile/UserGreeting';
+import ProfileTabContent from '../components/profile/ProfileTabContent';
+import FinanceTabContent from '../components/profile/FinanceTabContent';
+import FinancialActivity from '../components/profile/FinancialActivity';
+import ChatList from '../components/profile/ChatList';
+import AgentsTabContent from '../components/profile/AgentsTabContent';
+import StrategyTabContent from '../components/profile/StrategyTabContent';
+import CoinsTabContent from '../components/profile/CoinsTabContent';
+
+// Регистрация компонентов Chart.js
 ChartJS.register(
   CategoryScale, 
   LinearScale, 
@@ -31,6 +39,7 @@ const ProfilePage = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [assetsData, setAssetsData] = useState(null);
   const chartRef = useRef(null);
+  const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   
   // Генерация данных для графика
   useEffect(() => {
@@ -39,13 +48,13 @@ const ProfilePage = ({ user, onLogout }) => {
     
     // Фактические данные
     const actualData = Array(6).fill(null)
-      .map((_, i) => user.balance - 1000 + i * 500)
+      .map((_, i) => 10000 - 100 + i * 550)
       .concat(Array(6).fill(null));
     
     // Прогнозируемые данные
     const forecastData = Array(6).fill(null)
       .concat(Array(6).fill(null)
-      .map((_, i) => user.balance + (i + 1) * 300));
+      .map((_, i) => 13000 + (i + 1) * 1800));
     
     // Данные для распределения активов
     setAssetsData({
@@ -95,11 +104,6 @@ const ProfilePage = ({ user, onLogout }) => {
       });
     }
   }, [user.balance]);
-
-  const [chartData, setChartData] = useState({
-    labels: [],
-    datasets: []
-  });
 
   // Настройки графика баланса
   const chartOptions = {
@@ -229,297 +233,49 @@ const ProfilePage = ({ user, onLogout }) => {
 
   // Данные для финансовой активности
   const financialActivity = [
-    { type: 'EXPENSE', amount: 1240, description: 'Market fees', date: 'TODAY, 15:30' },
-    { type: 'INCOME', amount: 3200, description: 'Dividend payment', date: 'TODAY, 12:45' },
-    { type: 'TRANSFER', amount: 5000, description: 'Account funding', date: 'YESTERDAY, 09:22' },
-    { type: 'INCOME', amount: 1870, description: 'Stock sale', date: 'JUN 02, 16:15' },
+    { type: 'EXPENSE', amount: 1240, description: 'Buy BTC', date: 'TODAY, 15:30' },
+    { type: 'INCOME', amount: 500, description: 'Sell ETH', date: 'TODAY, 00:00' },
+    { type: 'TRANSFER', amount: 100, description: 'Add balance', date: 'YESTERDAY, 00:00' },
+    { type: 'INCOME', amount: 1870, description: 'Sell XMR', date: 'JUN 02, 16:15' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* Боковая панель */}
-      <div className="w-64 bg-gradient-to-b from-blue-900 to-purple-900 text-white p-6 flex flex-col">
-        <div className="mb-10">
-            <img 
-                src={logo} 
-                alt="AI Trading Logo" 
-                className="w-20 h-auto"
-            />
-            <h1 className="text-2xl font-bold">Agent Trade</h1>
-        </div>
-        
-         <nav className="flex-1">
-          <ul className="space-y-4">
-            <li>
-              <button 
-                className={`w-full text-left p-3 rounded-lg transition ${activeTab === 'profile' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
-                onClick={() => setActiveTab('profile')}
-              >
-                <div className="flex items-center">
-                  <span className="ml-2">Профиль</span>
-                </div>
-              </button>
-            </li>
-            <li>
-              <button 
-                className={`w-full text-left p-3 rounded-lg transition ${activeTab === 'finance' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
-                onClick={() => setActiveTab('finance')}
-              >
-                <div className="flex items-center">
-                  <span className="ml-2">Финансы</span>
-                </div>
-              </button>
-            </li>
-            <li>
-              <button className="w-full text-left p-3 rounded-lg hover:bg-blue-800 transition">
-                <div className="flex items-center">
-                  <span className="ml-2">Транзакции</span>
-                </div>
-              </button>
-            </li>
-            <li>
-              <button className="w-full text-left p-3 rounded-lg hover:bg-blue-800 transition">
-                <div className="flex items-center">
-                  <span className="ml-2">История операций</span>
-                </div>
-              </button>
-            </li>
-            <li>
-              <button className="w-full text-left p-3 rounded-lg hover:bg-blue-800 transition">
-                <div className="flex items-center">
-                  <span className="ml-2">Настройки</span>
-                </div>
-              </button>
-            </li>
-          </ul>
-        </nav>
-        
-        <div className="mt-auto">
-          <button 
-            className="w-full bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg transition"
-            onClick={onLogout}
-          >
-            Выйти
-          </button>
-        </div>
-      </div>
-      
-      {/* Основное содержимое */}
+      <ProfileSidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          onLogout={onLogout} 
+      />
+
       <div className="flex-1 p-8 overflow-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Блок с приветствием */}
-          <div className="lg:col-span-3 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Добро пожаловать, {user.login}!</h2>
-            <p className="text-gray-600">
-              Наша ИИ система анализирует рынок 24/7 и совершает сделки с максимальной эффективностью.
-            </p>
-          </div>
-          
-          {/* Контент в зависимости от активной вкладки */}
           {activeTab === 'profile' && (
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Личная информация</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Основные данные</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm text-gray-500 mb-1">Имя пользователя</label>
-                        <div className="p-3 bg-gray-50 rounded-lg">{user.login}</div>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-500 mb-1">Email</label>
-                        <div className="p-3 bg-gray-50 rounded-lg">{user.email}</div>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-gray-500 mb-1">Дата регистрации</label>
-                        <div className="p-3 bg-gray-50 rounded-lg">01 января 2025</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Безопасность</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm text-gray-500 mb-1">Статус аккаунта</label>
-                        <div className="p-3 bg-green-50 text-green-700 rounded-lg">Подтвержден</div>
-                      </div>
-                      <button className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 p-3 rounded-lg transition">
-                        Сменить пароль
-                      </button>
-                      <button className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 p-3 rounded-lg transition">
-                        Двухфакторная аутентификация
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+              <UserGreeting user={user} />
+            )}
+          
+          {activeTab === 'profile' && <ProfileTabContent user={user} />}
           
           {activeTab === 'finance' && (
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Управление капиталом</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-blue-50 p-6 rounded-2xl">
-                    <div className="text-3xl font-bold text-blue-800 mb-2">${user.balance}</div>
-                    <div className="text-gray-600">Текущий баланс</div>
-                  </div>
-                  
-                  <div className="bg-green-50 p-6 rounded-2xl">
-                    <div className="text-3xl font-bold text-green-800 mb-2">+$1,240</div>
-                    <div className="text-gray-600">Доход за месяц</div>
-                  </div>
-                  
-                  <div className="bg-purple-50 p-6 rounded-2xl">
-                    <div className="text-3xl font-bold text-purple-800 mb-2">+24.7%</div>
-                    <div className="text-gray-600">Рост за квартал</div>
-                  </div>
-                </div>
-                
-                <div className="mb-8">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Статистика баланса</h3>
-                  <div className="h-80">
-                    <Line 
-                      ref={chartRef}
-                      data={chartData} 
-                      options={chartOptions} 
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Распределение активов</h3>
-                    <div className="h-64">
-                      <Doughnut 
-                        data={assetsChartData} 
-                        options={assetsChartOptions} 
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Прогнозируемый рост</h3>
-                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-2xl h-full">
-                      <div className="flex items-center mb-4">
-                        <div className="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
-                        <div className="font-medium">Прогноз на следующий квартал</div>
-                      </div>
-                      
-                      <div className="text-3xl font-bold text-blue-800 mb-2">+18.2%</div>
-                      <p className="text-gray-600 mb-4">
-                        На основе текущих рыночных тенденций и стратегии ИИ
-                      </p>
-                      
-                      <div className="flex items-center mb-4">
-                        <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <div className="font-medium">Рекомендуемые активы</div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span>Технологические акции</span>
-                          <span className="font-medium">+32%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Зеленые облигации</span>
-                          <span className="font-medium">+18%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Криптовалюты</span>
-                          <span className="font-medium">+25%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">Быстрые действия</h3>
-                  <div className="flex flex-wrap gap-4">
-                    <button className="flex-1 min-w-[200px] bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg transition">
-                      Пополнить счет
-                    </button>
-                    <button className="flex-1 min-w-[200px] bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg transition">
-                      Вывести средства
-                    </button>
-                    <button className="flex-1 min-w-[200px] bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg transition">
-                      Инвестировать
-                    </button>
-                    <button className="flex-1 min-w-[200px] bg-yellow-600 hover:bg-yellow-700 text-white p-4 rounded-lg transition">
-                      Торговать
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <FinanceTabContent 
+              user={user}
+              chartData={chartData}
+              chartOptions={chartOptions}
+              chartRef={chartRef}
+              assetsChartData={assetsChartData}
+              assetsChartOptions={assetsChartOptions}
+            />
           )}
-          
-          {/* Блок с финансовой активностью */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Finance Activity</h2>
-            <div className="space-y-4">
-              {financialActivity.map((activity, index) => (
-                <div 
-                  key={index} 
-                  className={`p-4 rounded-lg ${
-                    activity.type === 'EXPENSE' ? 'bg-red-50' : 
-                    activity.type === 'INCOME' ? 'bg-green-50' : 
-                    'bg-blue-50'
-                  }`}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="font-semibold">{activity.description}</div>
-                    <div className={`font-bold ${
-                      activity.type === 'EXPENSE' ? 'text-red-700' : 
-                      activity.type === 'INCOME' ? 'text-green-700' : 
-                      'text-blue-700'
-                    }`}>
-                      {activity.type === 'EXPENSE' ? '-' : '+'}${activity.amount}
-                    </div>
-                  </div>
-                  <div className="flex justify-between mt-2 text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <div className={`w-3 h-3 rounded-full mr-2 ${
-                        activity.type === 'EXPENSE' ? 'bg-red-500' : 
-                        activity.type === 'INCOME' ? 'bg-green-500' : 
-                        'bg-blue-500'
-                      }`}></div>
-                      <span>{activity.type}</span>
-                    </div>
-                    <span>{activity.date}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Блок с чатами */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Chats</h2>
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="font-semibold">Support Team</div>
-                <p className="text-sm text-gray-600 mt-1">
-                  I hope you are finding Blocs fun to build websites with. Thanks for your support!
-                </p>
-                <div className="text-xs text-gray-400 mt-2">TODAY, 14:30</div>
-              </div>
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="font-semibold">Norm</div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Hey Norm, Blocs Rocks, congrats!
-                </p>
-                <div className="text-xs text-gray-400 mt-2">TODAY, 19:30</div>
-              </div>
-            </div>
-          </div>
+
+           {activeTab === 'agents' && <AgentsTabContent />}
+           {activeTab === 'strategy' && <StrategyTabContent />}
+           {activeTab === 'coins' && <CoinsTabContent />}
+
+           {activeTab === 'profile' || activeTab === 'finance' && (
+              <>
+                <FinancialActivity activities={financialActivity} />
+                <ChatList />
+              </>
+            )}
         </div>
       </div>
     </div>

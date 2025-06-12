@@ -258,3 +258,47 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          
+//           {/* Блок с чатами */}
+//           <div className="bg-white rounded-2xl shadow-lg p-6">
+//             <h2 className="text-xl font-bold text-gray-800 mb-4">Chats</h2>
+//             <div className="space-y-4">
+//               <div className="p-4 bg-gray-50 rounded-lg">
+//                 <div className="font-semibold">Support Team</div>
+//                 <p className="text-sm text-gray-600 mt-1">
+//                   I hope you are finding Blocs fun to build websites with. Thanks for your support!
+//                 </p>
+//                 <div className="text-xs text-gray-400 mt-2">TODAY, 14:30</div>
+//               </div>
+//               <div className="p-4 bg-blue-50 rounded-lg">
+//                 <div className="font-semibold">Norm</div>
+//                 <p className="text-sm text-gray-600 mt-1">
+//                   Hey Norm, Blocs Rocks, congrats!
+//                 </p>
+//                 <div className="text-xs text-gray-400 mt-2">TODAY, 19:30</div>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default ProfilePage;

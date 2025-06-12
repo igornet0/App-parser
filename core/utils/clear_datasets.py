@@ -82,7 +82,7 @@ def str_to_float(item: str) -> float | None:
         return item
     
     if not isinstance(item, str):
-        print(item)
+        # print(item)
         return None
     
     elif item == "x":
@@ -94,7 +94,7 @@ def str_to_float(item: str) -> float | None:
         return float(result)
     except ValueError:
         pass
-    print(item, result)
+    # print(item, result)
     return None
     
 def clear_datetime_false(df: pd.DataFrame, datetime_column: str = "datetime") -> pd.DataFrame:

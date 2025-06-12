@@ -11,7 +11,6 @@ from pandas.api.types import CategoricalDtype
 import aiofiles
 import json
 import zipfile
-import yaml
 import shutil
 from datetime import datetime
 from functools import cached_property
@@ -23,7 +22,7 @@ logger = logging.getLogger("DataManager")
 class SettingsTrade(BaseSettings):
 
     # Пути к данным
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
     DATA_DIR: Path = BASE_DIR / "data"
 
     RAW_DATA_PATH: Path = DATA_DIR / "raw"
@@ -65,7 +64,7 @@ class DataManager:
             "models logs": self.settings.MODELS_LOGS_PATH,
             "models configs": self.settings.MODELS_CONFIGS_PATH,
             "models pth": self.settings.MODEL_PTH_PATH,
-            }
+        }
 
         self._ensure_directories_exist()
         self._setup_logging()
@@ -78,6 +77,18 @@ class DataManager:
         """Создает все необходимые директории при инициализации"""
 
         for directory in self.required_dirs.values():
+            directory.mkdir(parents=True, exist_ok=True)
+
+        from backend.MMM.agent_manager import AgentManager
+
+        for agent_type in AgentManager.type_agents.keys():
+            directory = self["models logs"] / agent_type
+            directory.mkdir(parents=True, exist_ok=True)
+
+            directory = self["models configs"] / agent_type
+            directory.mkdir(parents=True, exist_ok=True)
+
+            directory = self["models pth"] / agent_type
             directory.mkdir(parents=True, exist_ok=True)
 
     def _setup_logging(self):
@@ -165,7 +176,7 @@ class DataManager:
 
     def save_img(self, img: Image, time_parser: str = "5m", name: str = "img") -> None:
         path = self.create_dir("raw", "img")
-        path = self.create_dir("raw", "img/" +time_parser)
+        path = self.create_dir("raw", "img/" + time_parser)
         name = name.replace(":", "_").replace(" ", "_").replace("/", "-")
 
         img_path = path / f"{name}.png"
@@ -344,11 +355,12 @@ class DataManager:
             logger.error(f"Cleanup error: {str(e)}")
             raise
 
-    def get_model_config(self, model_name: str) -> dict:
+    def get_model_config(self, agent_type: str, model_name: str) -> dict:
         """
         Загрузка конфигурации модели
         """
-        config_path = self.settings.MODELS_CONFIGS_PATH / f"{model_name}.json"
+
+        config_path = self.settings.MODELS_CONFIGS_PATH / agent_type / f"{model_name}.json"
         try:
             with open(config_path, "r") as f:
                 return json.load(f)
@@ -358,6 +370,15 @@ class DataManager:
             logger.error(f"Error loading model config {model_name}: {str(e)}")
         
         return {}
+    
+    @cached_property
+    def get_agent_types(self) -> list[str]:
+        """
+        Получение доступных типов агентов
+        """
+        from backend.MMM.agent_manager import AgentManager
+
+        return list(AgentManager.type_agents.keys())
 
     async def save_processed_data(
         self,
@@ -385,4 +406,4 @@ class DataManager:
         
         return save_path
     
-data_manager = DataManager()
+data_helper = DataManager()

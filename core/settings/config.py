@@ -25,6 +25,12 @@ class RunConfig(BaseSettings):
     port: int = Field(8000)
     reload: bool = Field(default=False)
 
+    frontend_host: str = Field(default="localhost")
+    frontend_port: int = Field(default=5173)
+
+    @property
+    def frontend_url(self):
+        return f"http://{self.frontend_host}:{self.frontend_port}"
 
 class LoggingConfig(BaseSettings):
     

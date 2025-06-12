@@ -11,11 +11,11 @@ from tqdm import tqdm
 from accelerate import Accelerator
 
 from .parsing_schem import parsing_json_schema
-from core import data_manager
+from core import data_helper
 from backend.MMM import (Agent,
                          AgentManager)
 
-from backend.Dataset import DatasetTimeseries, LoaderTimeLine
+from backend.Dataset import LoaderTimeLine
 from .transform_data import TimeSeriesTransform
 
 import logging
@@ -24,15 +24,16 @@ logger = logging.getLogger("train_models.loader")
 
 class Loader:
 
-    def __init__(self, agent_type: str):
+    def __init__(self, agent_type: str, model_type: str = "MMM"):
         self.agent_type = agent_type
+        self.model_type = model_type
         self._multi_agent = False
         accelerator = Accelerator()
         self.device = torch.device(accelerator.device)
 
     def load_model(self, count_agents: int = 1) -> AgentManager:
-        logger.info(f"Loading Agent: {self.agent_type}")
-        config_model = data_manager.get_model_config(self.agent_type)
+        logger.info(f"Loading Agent: {self.agent_type}|{self.model_type} with count: {count_agents}")
+        config_model = data_helper.get_model_config(self.agent_type, self.model_type)
 
         RP_I = config_model.get("RANDOM_INDICATETS", False)
 
@@ -40,46 +41,19 @@ class Loader:
             agent_manager = AgentManager(agent_type=self.agent_type,
                                          config=config_model,
                                          count_agents=count_agents,
-                                         schema_RP=self._load_schema(self.agent_type),
+                                         schema_RP=self._load_schema(self.agent_type, self.model_type),
                                          RP_I=RP_I)
         except Exception as e:
             logger.error(f"Error loading agent: {self.agent_type} - {str(e)}")
             return None
 
         return agent_manager
-    
-    @staticmethod
-    def vectorized_quantile_loss(predictions, targets):
-        """
-        Комбинированная функция потерь для финансовых прогнозов
-        Args:
-            predictions: Tensor [batch_size, pred_len, 2]
-                - predictions[..., 0]: price predictions
-                - predictions[..., 1]: volatility predictions
-            targets: Tensor [batch_size, pred_len]
-        
-        Returns:
-            loss: Combined loss value
-        """
-        print("vectorized_quantile_loss")
-        print(f"predictions.shape: {predictions.shape}\ntargets.shape: {targets.shape}")
-        price_pred = predictions[..., 0]
-        direction_pred = predictions[..., 2]  # Добавить выход для направления
-        
-        # MSE для цены
-        price_loss = F.mse_loss(price_pred, targets)
-        
-        # Binary cross-entropy для направления
-        true_direction = (targets[:,1:] > targets[:,:-1]).float()
-        direction_loss = F.binary_cross_entropy_with_logits(
-            direction_pred[:,:-1], true_direction)
-        
-        return 0.7*price_loss + 0.3*direction_loss
 
     @staticmethod
-    def _load_schema(agent_type) -> Union[Dict[str, Generator[None, None, Any]], None]:
+    def _load_schema(agent_type, model_type) -> Union[Dict[str, Generator[None, None, Any]], None]:
         
-        config_model = data_manager.get_model_config(agent_type)
+        config_model = data_helper.get_model_config(agent_type, model_type)
+
         schema = config_model.get("schema")
         if not schema:
             return None
@@ -132,7 +106,7 @@ class Loader:
         # Цикл эпох
         for epoch in range(epochs):
             epoch_loss = 0.0
-            model.train()
+            agent.model.train()
             start_time = time.time()
 
             pbar = tqdm(enumerate(loader), 
@@ -145,21 +119,22 @@ class Loader:
             for batch_idx, batch in pbar:
                 
                 optimizer.zero_grad()
+                args = [arg.to(self.device) for arg in batch if arg is not None]
+                x, y, *_ = args
+
                 with autocast(device_type=self.device.type, enabled=effective_mp and (is_cuda or is_mps)):
-
-                    args = [arg.to(self.device) for arg in batch if arg is not None]
-
-                with torch.no_grad():
-
-                    x, y, *_ = args
+                # with torch.no_grad():
                     
                     outputs = agent.trade([x, *_])
-                    print(outputs.shape, y.shape)
-                    loss = agent.loss_function(outputs, y)
-                    assert torch.isnan(loss).sum() == 0, "Найдены NaN в loss"
+                
                     # print(outputs.shape, y.shape)
-                    # print(outputs)
-                    # print(f"Loss: {loss.item():.4f} | Batch size: {x.size(0)}")
+                    loss = agent.loss_function(outputs, y)
+                    # print(f"Output min: {outputs.min().item()}, max: {outputs.max().item()}") 
+                
+                assert torch.isnan(loss).sum() == 0, "Найдены NaN в loss"
+                # print(outputs.shape, y.shape)
+                # print(outputs)
+                # print(f"Loss: {loss.item():.4f} | Batch size: {x.size(0)}")
 
                 # Обновление градиентов
                 if effective_mp:
@@ -169,7 +144,8 @@ class Loader:
                     scaler.step(optimizer)
                     scaler.update()
                 else:
-                    loss.backward()
+                    # print(f"Loss: {loss.item():.4f} | Batch size: {x.size(0)} | Output shape: {outputs.shape}")
+                    loss.backward()  # Обновление градиентов
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Клиппинг
                     optimizer.step()
                 
@@ -203,7 +179,7 @@ class Loader:
                 history_state.append(True)
                 if len(history_state) % 10 == 0:
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-                    filename = data_manager["models pth"] / f"{agent.name}_{agent.id}_{timestamp}_{id(agent)}.pth"
+                    filename = data_helper["models pth"] / f"{agent.name}_{agent.id}_{timestamp}_{id(agent)}.pth"
 
                     agent.save_model(epoch=epoch, 
                                      optimizer=optimizer, 
@@ -221,7 +197,7 @@ class Loader:
         print(f"\n⭐ Agent {agent.id} Best Loss: {best_loss:.4f}\n")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        filename = data_manager["models logs"] / f"agent_{agent.id}_training_log_{timestamp}_{id(agent)}.json"
+        filename = data_helper["models logs"] / f"agent_{agent.id}_training_log_{timestamp}_{id(agent)}.json"
         
         agent.save_json(
             epoch=epoch, 
@@ -238,7 +214,7 @@ class Loader:
                     mixed: bool = True):
         
         logger.info("🚀 Starting ensemble training")
-        config_train = data_manager.get_model_config(self.agent_type)
+        config_train = data_helper.get_model_config(self.agent_type, self.model_type)
         
         # Конфигурация обучения
         epochs = config_train["epochs"]
@@ -261,12 +237,4 @@ class Loader:
     def train_multi_agent(self, loaders, bath_size=10):
         logger.info("Training multi-agent model")
         for agent in self.agent:
-            agent.train_model(loaders, bath_size)
-
-    def save_model(self, file_path: str):
-        # Placeholder for saving the model
-        logger.info(f"Saving model to: {file_path}")
-        # Here you would typically save the model to disk
-        # For example:
-        # torch.save(self.model, file_path)
-        pass
+            self.train_model(loaders, bath_size)

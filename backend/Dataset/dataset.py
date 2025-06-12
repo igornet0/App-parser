@@ -16,7 +16,7 @@ from torch.utils.data import Dataset as _Dataset, DataLoader
 from transformers import BertTokenizer
 import torch
 
-from core import data_manager
+from core.database import DataTimeseries
 from core.utils.clear_datasets import *
 from core.utils.tesseract_img_text import RU_EN_timetravel
 from .indicators import Indicators
@@ -39,7 +39,7 @@ def timer(func):
 
 class Dataset(_Dataset):
 
-    def __init__(self, dataset: Union[pd.DataFrame, dict, str], transforms=None, target_column: str=None) -> None:
+    def __init__(self, dataset: Union[pd.DataFrame, str, List[DataTimeseries]], transforms=None, target_column: str=None) -> None:
         
         if isinstance(dataset, str) or isinstance(dataset, PosixPath):
             path_open = self.searh_path_dateset(dataset)
@@ -50,8 +50,13 @@ class Dataset(_Dataset):
             dataset = pd.read_csv(path_open)
             self.set_filename(str(path_open).split("/")[-1])
 
+        elif isinstance(dataset, list):
+            dataset = self.convert_to_dataframe(dataset)
+            self.set_filename("clear_dataset.csv")
+
         elif not isinstance(dataset, pd.DataFrame):
             logger.error(f"Invalid dataset type {type(dataset)}")
+            raise ValueError(f"Invalid dataset type {type(dataset)}")
             self.set_filename("clear_dataset.csv")
         
         self.drop_unnamed(dataset)
@@ -71,7 +76,37 @@ class Dataset(_Dataset):
         else:
             self.targets = None
 
-        self.path_save = data_manager["processed"]
+        self.path_save = "./"
+
+    @staticmethod
+    def convert_to_dataframe(data_list: list[DataTimeseries]) -> pd.DataFrame:
+        """
+        Преобразует список объектов DataTimeseries в pandas DataFrame.
+        
+        Параметры:
+            data_list: Список объектов DataTimeseries.
+        
+        Возвращает:
+            pd.DataFrame с колонками: 
+            ['datetime', 'open', 'max', 'min', 'close', 'volume']
+        """
+        def check_item(item):
+            if not isinstance(item, DataTimeseries):
+                raise TypeError("Expected DataTimeseries object")
+            return True
+
+        data_dicts = [{
+            'datetime': item.datetime,
+            'open': item.open,
+            'max': item.max,
+            'min': item.min,
+            'close': item.close,
+            'volume': item.volume
+        } for item in data_list if check_item(item)]
+        
+        df = pd.DataFrame(data_dicts)
+
+        return df
 
     def get_datetime_last(self) -> datetime:
         return self.dataset['datetime'].iloc[-1]
@@ -169,7 +204,7 @@ class Dataset(_Dataset):
 
 class DatasetTimeseries(Dataset):
     
-    def __init__(self, dataset: Union[pd.DataFrame, dict, str] , timetravel: str = "5m") -> None:
+    def __init__(self, dataset: Union[pd.DataFrame, dict, str, List[DataTimeseries]] , timetravel: str = "5m") -> None:
         
         super().__init__(dataset)
 

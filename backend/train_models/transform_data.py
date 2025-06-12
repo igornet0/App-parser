@@ -104,10 +104,9 @@ class TimeSeriesTransform(IterableDataset):
 
         while self._gen.peek() is not None:
 
-            time_line = next(self._gen) # [B, 3, seq_len]
+            time_line = next(self._gen) 
 
             if not self.time_line_loaders:
-                # print("time_line_loaders is working")
                 self.load_time_line(time_line)
             
             while self.time_line_loaders:
@@ -122,12 +121,10 @@ class TimeSeriesTransform(IterableDataset):
                             break
 
                         if len(bath_data) == self.batch_size:
-                            # yield self._process_batch(bath_data)
                             yield self.agent.process_batch(bath_data)
                             bath_data = []
 
                     if len(bath_data) == self.batch_size:
-                        # yield self._process_batch(bath_data)
                         yield self.agent.process_batch(bath_data)
                         bath_data = []
                         continue

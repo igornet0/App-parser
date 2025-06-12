@@ -85,8 +85,8 @@ class AgentTradeTime(Agent):
         time_features = data[column_time]
 
         if self.mod == "test":
-            tatget = self.procces_target(data)
-            bath = [data, tatget, time_features]
+            target = self.procces_target(data)
+            bath = [data, target, time_features]
             return bath
 
         column_time.extend(drop_columns)
@@ -101,8 +101,8 @@ class AgentTradeTime(Agent):
         new_data = new_data[column_output]
 
         if self.mod == "train":
-            tatget = self.procces_target(data)
-            bath = [new_data.values, target_pred_time, tatget, time_features.values]
+            target = self.procces_target(data)
+            bath = [new_data.values, target_pred_time, target, time_features.values]
             return bath
         
         bath = [new_data.values, target_pred_time, time_features.values]
@@ -112,10 +112,9 @@ class AgentTradeTime(Agent):
     def init_model_to_train(self, base_lr, weight_decay, 
                             is_cuda, effective_mp,
                             patience):
-        
-        criterion = nn.CrossEntropyLoss()
 
-        self.criterion = criterion
+        # self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.HuberLoss(delta=0.5)
 
         # Оптимизатор и планировщик
         optimizer = torch.optim.AdamW(
@@ -149,11 +148,11 @@ class AgentTradeTime(Agent):
 
         for i in range(len(prices_close)):
             if prices_close[i] > self.proffit_preddict_for_buy:
-                targets.append([1, 0, 0])
+                targets.append([100, 0, 0])
             elif abs(prices_close[i]) > self.proffit_preddict_for_sell:
-                targets.append([0, 1, 0])
+                targets.append([0, 100, 0])
             else:
-                targets.append([0, 0, 1])
+                targets.append([0, 0, 100])
         
         if self.mod == "test":
             data["target"] = targets
@@ -220,5 +219,5 @@ class AgentTradeTime(Agent):
             json.dump(training_info, f, indent=2)
     
     def loss_function(self, y_pred, y_true):
-        y_true = y_true.squeeze(dim=-1) 
+        # y_true = y_true.squeeze(dim=-1)
         return self.model.loss_function(self.criterion, y_pred, y_true)

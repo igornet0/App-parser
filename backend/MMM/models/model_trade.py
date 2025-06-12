@@ -89,6 +89,8 @@ class TradingModel(nn.Module):
             # Эмбеддинг текущего шага
             step_emb = self.step_embedding(steps[:, step])  # [B, hidden_size]
             
+            context_3d = context.unsqueeze(1)  # Добавляем seq_len=1
+            
             # Контекст из истории (используем последнее состояние)
             # context = encoder_out[:, -1, :]  # [B, hidden_size]
             
@@ -103,10 +105,10 @@ class TradingModel(nn.Module):
             
             # Внимание между выходом декодера и историей
             attn_out, _ = self.attention(
-                decoder_out, 
-                context, 
-                step_emb
-            )  # [B, 1, hidden_size]
+                query=decoder_out,  # [B, 1, H]
+                key=context_3d,     # [B, 1, H] 
+                value=context_3d,   # [B, 1, H] (не step_emb!)
+            )    # [B, 1, hidden_size]
             
             # Объединение информации
             combined = torch.cat([decoder_out, attn_out], dim=-1)  # [B, 1, hidden_size * 2]

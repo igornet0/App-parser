@@ -36,28 +36,16 @@ class Indicators:
         return data.sort_values('datetime', ignore_index=True).reset_index(drop=True)
     
     @staticmethod
-    def sma_shape():
-        return 1
-
-    @staticmethod
     def sma(data: pd.DataFrame, period=14, column='close'):
         """Простая скользящая средняя (Simple Moving Average)"""
         data = Indicators._check_data(data)
         return data[column].rolling(window=period).mean()
     
     @staticmethod
-    def ema_shape():
-        return 1
-    
-    @staticmethod
     def ema(data: pd.DataFrame, period=14, column='close'):
         """Экспоненциальная скользящая средняя (Exponential Moving Average)"""
         data = Indicators._check_data(data)
         return data[column].ewm(span=period, adjust=False).mean()
-    
-    @staticmethod
-    def rsi_shape():
-        return 1
     
     @staticmethod
     def rsi(data: pd.DataFrame, period=14):
@@ -75,10 +63,6 @@ class Indicators:
         return 100 - (100 / (1 + rs))
     
     @staticmethod
-    def macd_shape():
-        return 2
-    
-    @staticmethod
     def macd(data: pd.DataFrame, fast=12, slow=26, signal=9):
         """Схождение/расхождение скользящих средних (MACD)"""
         data = Indicators._check_data(data)
@@ -89,13 +73,10 @@ class Indicators:
         return macd_line, signal_line
     
     @staticmethod
-    def bolb_shape():
-        return 3
-
-    @staticmethod
     def bollinger_bands(data: pd.DataFrame, period=20, num_std=2):
         """Полосы Боллинджера (Bollinger Bands)"""
         data = Indicators._check_data(data)
+
         sma = Indicators.sma(data, period)
         std = data['close'].rolling(period).std()
         upper = sma + (std * num_std)
@@ -120,10 +101,6 @@ class Indicators:
         return upper_norm, middle_norm, lower_norm
     
     @staticmethod
-    def atr_shape():
-        return 1
-    
-    @staticmethod
     def atr(data: pd.DataFrame, period=14):
         """Average True Range"""
         data = Indicators._check_data(data)
@@ -133,10 +110,6 @@ class Indicators:
         
         tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         return tr.rolling(period).mean()
-    
-    @staticmethod
-    def stochastic_shape():
-        return 2
 
     @staticmethod
     def stochastic_oscillator(data: pd.DataFrame, period=14, smoothing=3):
@@ -149,10 +122,6 @@ class Indicators:
         k = 100 * (close - low_min) / (high_max - low_min)
         d = k.rolling(smoothing).mean()
         return k, d
-    
-    @staticmethod
-    def vwap_shape():
-        return 1
     
     @staticmethod
     def vwap(data: pd.DataFrame):
@@ -199,10 +168,6 @@ class Indicators:
         return vwap_close_ratio
     
     @staticmethod
-    def obv_shape():
-        return 1
-
-    @staticmethod
     def obv(data: pd.DataFrame):
         """
         Рассчитывает On-Balance Volume (OBV).
@@ -222,10 +187,6 @@ class Indicators:
         # Расчет OBV
         obv = (direction * data['volume']).cumsum()
         return obv
-    
-    @staticmethod
-    def mfi_shape():
-        return 1
     
     @staticmethod
     def mfi(data: pd.DataFrame, period=14):
@@ -264,10 +225,6 @@ class Indicators:
         return mfi
     
     @staticmethod
-    def crv_shape():
-        return 1
-    
-    @staticmethod
     def crv(data: pd.DataFrame, period=20, trading_days=252):
         """
         Рассчитывает реализованную волатильность.
@@ -286,23 +243,19 @@ class Indicators:
 
         return annualized_vol
     
-    @staticmethod
-    def get_shape(indicator_name: str):
+    @classmethod
+    def get_shape(cls, indicator_name: str):
         """Получить форму индикатора"""
-        shapes = {
-            'SMA': Indicators.sma_shape,
-            'EMA': Indicators.ema_shape,
-            'RSI': Indicators.rsi_shape,
-            'MACD': Indicators.macd_shape,
-            'BOLLINGER': Indicators.bolb_shape,
-            'ATR': Indicators.atr_shape,
-            'STOCHASTIC_OSCILLATOR': Indicators.stochastic_shape,
-            'VWAP': Indicators.vwap_shape,
-            'OBV': Indicators.obv_shape,
-            "MFI": Indicators.mfi_shape,
-            "CRV": Indicators.crv_shape
-        }
-        return shapes.get(indicator_name, lambda: None)()
+        
+        shape = cls.collumns_shape.get(indicator_name, None)
+        if shape is None:
+            raise ValueError(f"Unknown indicator: {indicator_name}")
+        elif isinstance(shape, str):
+            return 1
+        elif isinstance(shape, list):
+            return len(shape)
+        else:
+            raise ValueError(f"Unknown indicator shape: {shape}")
     
     @staticmethod
     def normalize(data: pd.DataFrame, column_indecater:str, column: str = "close"):
@@ -367,51 +320,80 @@ class Indicators:
         result = indicators_normalized[indicator_name](data, **kwargs)
 
         return Indicators.procces_data(collumn_name, data, result, **kwargs)
-        
+    
+    indicators = {
+        'SMA': sma,
+        'EMA': ema,
+        'RSI': rsi,
+        'MACD': macd,
+        'BOLLINGER': bollinger_bands,
+        'ATR': atr,
+        'STOCHASTIC_OSCILLATOR': stochastic_oscillator,
+        'VWAP': vwap,
+        'OBV': obv,
+        "MFI": mfi,
+        "CRV": crv
+    }
 
     @classmethod
     def calculate(cls, indicator_name: str, data: pd.DataFrame, **kwargs):
         """Вычислить индикатор"""
-        indicators = {
-            'SMA': Indicators.sma,
-            'EMA': Indicators.ema,
-            'RSI': Indicators.rsi,
-            'MACD': Indicators.macd,
-            'BOLLINGER': Indicators.bollinger_bands,
-            'ATR': Indicators.atr,
-            'STOCHASTIC_OSCILLATOR': Indicators.stochastic_oscillator,
-            'VWAP': Indicators.vwap,
-            'OBV': Indicators.obv,
-            "MFI": Indicators.mfi,
-            "CRV": Indicators.crv
-        }
 
-        if indicator_name not in indicators:
+        if indicator_name not in cls.indicators:
             return data
             raise ValueError(f"Unknown indicator: {indicator_name}")
         
         collumn_name = cls.collumns_shape[indicator_name]
-        data = Indicators._check_data(data)
-        result = indicators[indicator_name](data, **kwargs)
+        # data = Indicators._check_data(data)
+        result = cls.indicators[indicator_name](data, **kwargs)
 
         return Indicators.procces_data(collumn_name, data, result, **kwargs)
             
     
 # Пример использования:
 if __name__ == "__main__":
+    from random import randint
+
     # Загрузка данных из CSV
-    df = pd.read_csv('your_data.csv', parse_dates=['datetime'])
+    data = None
+    df = pd.DataFrame(data, parse_dates=['datetime'])
+
+    indecaters = {
+        "SMA": {"period": "?", "column": "?"},
+        "EMA": {"period": "?", "column": "?"},
+        "BOLLINGER": {"period": "?", "num_std": "?"},
+        "VWAP": {},
+        "RSI": {"period": "?"},
+        "ATR": {"period": "?"},
+        "MACD": {"fast": "?", "slow": "?", "signal": "?"},
+        "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
+        "OBV": {},
+        "MFI": {"period": "?"},
+        "CRV": {"period": "?", "trading_days": 362880}
+    },
+
+    def parser_kwargs(kwargs):
+        for key, value in kwargs.items():
+            if isinstance(value, str):
+                kwargs[key] = randint(1, 100)
+
+        return kwargs
+
+    for indecate_name in Indicators.indicators.keys(): 
+        kwargs = indecaters[indecate_name]
+
+        df = Indicators.calculate(indecate_name, df, kwargs=kwargs)
     
-    # Создание индикаторов
-    indicators = Indicators(df)
+    # # Создание индикаторов
+    # indicators = Indicators(df)
     
-    # Расчет индикаторов
-    df['SMA20'] = indicators.sma(20)
-    df['RSI14'] = indicators.rsi()
-    df['MACD'], df['Signal'] = indicators.macd()
-    df['UpperBB'], df['MiddleBB'], df['LowerBB'] = indicators.bollinger_bands()
-    df['ATR14'] = indicators.atr()
-    df['%K'], df['%D'] = indicators.stochastic_oscillator()
+    # # Расчет индикаторов
+    # df['SMA20'] = indicators.sma(20)
+    # df['RSI14'] = indicators.rsi()
+    # df['MACD'], df['Signal'] = indicators.macd()
+    # df['UpperBB'], df['MiddleBB'], df['LowerBB'] = indicators.bollinger_bands()
+    # df['ATR14'] = indicators.atr()
+    # df['%K'], df['%D'] = indicators.stochastic_oscillator()
     
     # Вывод последних 5 строк
     print(df.tail())

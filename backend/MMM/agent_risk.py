@@ -5,15 +5,15 @@ import torch
 from backend.Dataset.indicators import Indicators
 
 from .agent import Agent
-from .models import PricePredictorModel
+from .models import RiskAwareSACNetwork
 
 class AgentRisk(Agent):
     
-    model = PricePredictorModel
+    model = RiskAwareSACNetwork
 
     target_column = ["close"]
 
-    def _init_model(self, model_parameters: Dict[str, Any]) -> PricePredictorModel:
+    def _init_model(self, model_parameters: Dict[str, Any]) -> RiskAwareSACNetwork:
         """
         Initializes the model for the agent.
 
@@ -23,7 +23,7 @@ class AgentRisk(Agent):
                 and dropout rate.
 
         Returns:
-            PricePredictorModel: An instance of the PricePredictorModel class.
+            RiskAwareSACNetwork: An instance of the RiskAwareSACNetwork class.
 
         """
         # n_indicators = sum(self.get_shape_indecaters().values())
@@ -41,7 +41,7 @@ class AgentRisk(Agent):
         num_layers = model_parameters.get("num_layers", 2)
         dropout = model_parameters.get("dropout", 0.2)
 
-        self.model = PricePredictorModel(pred_len=pred_len,
+        self.model = RiskAwareSACNetwork(pred_len=pred_len,
                                     seq_len=seq_len,
                                     num_features=input_features,
                                     n_heads=n_heads,

@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr
+from datetime import datetime
 
 class UserLoginResponse(BaseModel):
     login: Optional[str] = None
@@ -14,6 +15,7 @@ class UserResponse(BaseModel):
     email: Optional[EmailStr] = None
     password: str
     balance: float
+    created: datetime
     active: Optional[bool] = True
 
 class TokenData(BaseModel):

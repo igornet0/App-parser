@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import AsyncGenerator
@@ -16,7 +16,9 @@ class Server:
 
     templates = Jinja2Templates(directory="backend/app/front/templates")
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    http_bearer = HTTPBearer(auto_error=False)
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl=settings.security.secret_key)
+    frontend_url = settings.run.frontend_url
 
     def __init__(self, app: FastAPI):
 
@@ -43,7 +45,10 @@ class Server:
             CORSMiddleware,
             allow_origins=[
                 "http://localhost:5173",    # React по умолчанию
+                "https://localhost:5173",
                 "http://127.0.0.1:5173",    
+                "https://127.0.0.1:5173",    
+                "http://agent-trade.ru",
                 "https://agent-trade.ru"
             ],
             allow_credentials=True,

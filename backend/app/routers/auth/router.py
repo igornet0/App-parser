@@ -1,10 +1,7 @@
-from typing import Annotated
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Depends, status, Body
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import (HTTPBearer,
-                              HTTPAuthorizationCredentials, 
                               OAuth2PasswordRequestForm)
 from datetime import timedelta
 
@@ -14,17 +11,16 @@ from core.database.orm_query import orm_get_user_by_email, orm_get_user_by_login
 from backend.app.configuration import (Server, 
                                        get_password_hash,
                                        UserResponse, UserLoginResponse,
-                                       Token, get_current_token_payload,
+                                       Token,
                                        verify_password, is_email,
                                        create_access_token,
-                                       get_user_by_token_sub,
-                                       validate_token_type)
+                                       verify_authorization)
 
 import logging
 
 http_bearer = HTTPBearer(auto_error=False)
 
-router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(http_bearer)],)
+router = APIRouter(prefix="/auth", tags=["auth"], dependencies=[Depends(http_bearer)])
 
 logger = logging.getLogger("app_fastapi.auth")
 
@@ -117,22 +113,8 @@ async def refresh_token(refresh_token: str):
         "token_type": "bearer"
     }
 
-
 @router.get("/user/me/", response_model=UserResponse)
 async def auth_user_check_self_info(
-    token: str = Depends(Server.oauth2_scheme),
-    session: AsyncSession = Depends(Server.get_db)
+    user: str = Depends(verify_authorization)
 ):
-    payload = get_current_token_payload(token)
-
-    validate_token_type(payload, "access")
-        
-    user = await get_user_by_token_sub(payload, session)
-    
-    if user.active:
-        return user
-    
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="inactive user",
-    )
+    return user
