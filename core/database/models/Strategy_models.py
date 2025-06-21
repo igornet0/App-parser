@@ -1,5 +1,5 @@
 # модели для БД
-from typing import Literal
+from typing import Literal, List
 from sqlalchemy import ForeignKey, Float, String, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,12 +15,6 @@ class StrategyAgent(Base):
 
     strategy_id: Mapped[int] = mapped_column(ForeignKey('strategys.id'), primary_key=True)
     agent_id: Mapped[int] = mapped_column(ForeignKey('agents.id'), primary_key=True)
-
-
-class TrainCoin(Base):
-
-    train_id: Mapped[int] = mapped_column(ForeignKey('agent_trains.id'), primary_key=True)
-    coin_id: Mapped[int] = mapped_column(ForeignKey('coins.id'), primary_key=True)
 
 
 class Strategy(Base):
@@ -74,24 +68,36 @@ class Strategy(Base):
 class AgentTrain(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
     agent_id: Mapped[int] = mapped_column(ForeignKey('agents.id'))
 
-    coins: Mapped[list['Coin']] = relationship(
-        'Coin', 
-        secondary="train_coins",
-        back_populates='train'
-    )
-
     epochs: Mapped[int] = mapped_column(Integer, default=100)
+    epoch_now: Mapped[int] = mapped_column(Integer, default=0)
+    loss_now: Mapped[float] = mapped_column(Float, default=0)
     batch_size: Mapped[int] = mapped_column(Integer, default=64)
     learning_rate: Mapped[float] = mapped_column(Float, default=0.001)
     weight_decay: Mapped[float] = mapped_column(Float, default=0.001)
 
     status: Mapped[str] = mapped_column(String(20), default="start")
-    
+
+    coins: Mapped[List["Coin"]] = relationship(
+        "Coin",  # Используем строковое имя класса
+        secondary="train_coins",  # Имя таблицы ассоциаций
+        back_populates="trains",  # Ссылка на обратное отношение в Coin
+        viewonly=False
+    )
+
+    agent: Mapped["Agent"] = relationship(
+        "Agent",
+        back_populates="trains"
+    )
+
     def set_status(self, new_status: Literal["start", "train", "stop"]):
 
         assert new_status in ["start", "train", "stop"], "Invalid status, use start, train or stop"
 
         self.status = new_status
+
+class TrainCoin(Base):
+
+    train_id: Mapped[int] = mapped_column(ForeignKey('agent_trains.id'), primary_key=True)
+    coin_id: Mapped[int] = mapped_column(ForeignKey('coins.id'), primary_key=True)

@@ -1,20 +1,33 @@
 from typing import Dict, Any, Tuple, List, Generator
 import pandas as pd
-from torch.amp import autocast, GradScaler
-import numpy as np
+from torch.amp import GradScaler
 import torch
 import json
 
-from backend.Dataset.indicators import Indicators
-
 from .agent import Agent
-from .models import PricePredictorModel
+from ..models import PricePredictorModel
 
-class AgentPReadTime(Agent):
+class AgentPredTime(Agent):
     
+    _type = "AgentPredTime"
+
     model = PricePredictorModel
 
     target_column = ["close"]
+
+    input_features = ["close", "max", "min", "volume"]
+
+    model_parameters_default = {
+        "seq_len": 50,
+        "pred_len": 5,
+        "d_model": 256,
+        "n_heads": 8,
+        "emb_month_size": 8,
+        "emb_weekday_size": 4,
+        "lstm_hidden": 256,
+        "num_layers": 5,
+        "dropout": 0.4
+    }
 
     def _init_model(self, model_parameters: Dict[str, Any]) -> PricePredictorModel:
         """
@@ -31,29 +44,22 @@ class AgentPReadTime(Agent):
         """
         # n_indicators = sum(self.get_shape_indecaters().values())
         # input_features = model_parameters.get("input_features", ['close', 'max', 'min', 'volume'])
-        input_features = self.get_count_input_features()
-        seq_len = model_parameters["seq_len"]
-        pred_len = model_parameters["pred_len"]
-        d_model = model_parameters.get("d_model", 128)
-        n_heads = model_parameters.get("n_heads", 4)
 
-        emb_month_size = model_parameters.get("emb_month_size", 8)
-        emb_weekday_size = model_parameters.get("emb_weekday_size", 4)
+        # seq_len = model_parameters.get("seq_len", 30)
+        # pred_len = model_parameters.get("pred_len", 5)
+        # d_model = model_parameters.get("d_model", 128)
+        # n_heads = model_parameters.get("n_heads", 4)
 
-        lstm_hidden = model_parameters.get("lstm_hidden", 256)
-        num_layers = model_parameters.get("num_layers", 2)
-        dropout = model_parameters.get("dropout", 0.2)
+        # emb_month_size = model_parameters.get("emb_month_size", 8)
+        # emb_weekday_size = model_parameters.get("emb_weekday_size", 4)
 
-        self.model = PricePredictorModel(pred_len=pred_len,
-                                    seq_len=seq_len,
-                                    num_features=input_features,
-                                    n_heads=n_heads,
-                                    d_model=d_model,
-                                    emb_month_size=emb_month_size, 
-                                    emb_weekday_size=emb_weekday_size, 
-                                    lstm_hidden=lstm_hidden, 
-                                    num_layers=num_layers, 
-                                    dropout=dropout)
+        # lstm_hidden = model_parameters.get("lstm_hidden", 256)
+        # num_layers = model_parameters.get("num_layers", 2)
+        # dropout = model_parameters.get("dropout", 0.2)
+
+        self.model = PricePredictorModel(
+                                    num_features=self.get_count_input_features(),
+                                    **model_parameters)
 
         return self.model
     
@@ -68,6 +74,10 @@ class AgentPReadTime(Agent):
             fused=is_cuda
         )
 
+        if self.optimizer_state_dict is not None:
+            optimizer.load_state_dict(self.optimizer_state_dict)
+            # self.optimizer_state_dict = None
+
         # Инициализация GradScaler только при необходимости
         scaler = GradScaler(enabled=effective_mp)
 
@@ -77,6 +87,10 @@ class AgentPReadTime(Agent):
             factor=0.5,
             patience=patience
         )
+
+        if self.scheduler_state_dict is not None:
+            scheduler.load_state_dict(self.scheduler_state_dict)
+            # self.scheduler_state_dict = None
 
         return optimizer, scheduler, scaler
     
@@ -138,16 +152,23 @@ class AgentPReadTime(Agent):
         
         return data[target_column].values
     
-    def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
+    def save_model(self, epoch, optimizer, scheduler, best_loss):
         if self.model is None:
             raise ValueError("Model is not initialized")
         
+        filename = self.get_filename_pth()
+        
         torch.save({
             'epoch': epoch,
+            "name": self.name,
+            "data_normalize": self.data_normalize,
+            "timetravel": self.timetravel,
             'indecaters': self.get_indecaters(),
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'scheduler_state_dict': scheduler.state_dict(),
+            "datetime_format": self.get_datetime_format(),
+            "input_features": self.input_features,
             "seq_len": self.model_parameters["seq_len"],
             "pred_len": self.model_parameters["pred_len"],
             "d_model": self.model_parameters.get("d_model", 128),
@@ -160,12 +181,60 @@ class AgentPReadTime(Agent):
             'loss': best_loss,
         }, filename)
 
-    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay, filename):
+    @staticmethod
+    def _load_agent_from_checkpoint(filename: str, i: int = 0) -> "AgentPredTime":
+        checkpoint = torch.load(filename)
+
+        # Load optimizer state
+        optimizer_state_dict = checkpoint['optimizer_state_dict']
+
+        # Load scheduler state
+        scheduler_state_dict = checkpoint['scheduler_state_dict']
+
+        name = checkpoint.get("name", "agent_pred_time_5m_{}".format(i))
+        timetravel = checkpoint.get("timetravel", "5m")
+        data_normalize = checkpoint.get("data_normalize", False)
+        # Load additional information
+        epoch = checkpoint['epoch']
+        best_loss = checkpoint['loss']
+        indecaters = checkpoint['indecaters']
+
+        model_parameters = {}
+
+        model_parameters["datetime_format"] = checkpoint.get("datetime_format", "%m-%d %H:%M %w")
+        model_parameters["input_features"] = checkpoint.get("input_features", ["close", "max", "min", "volume"])
+        model_parameters["seq_len"] = checkpoint.get("seq_len", model_parameters.get("seq_len"))
+        model_parameters["pred_len"] = checkpoint.get("pred_len", model_parameters.get("pred_len"))
+        model_parameters["d_model"] = checkpoint.get("d_model", model_parameters.get("d_model", 128))
+        model_parameters["n_heads"] = checkpoint.get("n_heads", model_parameters.get("n_heads", 4))
+        model_parameters["emb_month_size"] = checkpoint.get("emb_month_size", model_parameters.get("emb_month_size", 8))
+        model_parameters["emb_weekday_size"] = checkpoint.get("emb_weekday_size", model_parameters.get("emb_weekday_size", 4))
+        model_parameters["lstm_hidden"] = checkpoint.get("lstm_hidden", model_parameters.get("lstm_hidden", 256))
+        model_parameters["num_layers"] = checkpoint.get("num_layers", model_parameters.get("num_layers", 2))
+        model_parameters["dropout"] = checkpoint.get("dropout", model_parameters.get("dropout", 0.2))
+
+        agent = AgentPredTime(name=name, timetravel=timetravel, indecaters=indecaters,
+                              data_normalize=data_normalize,
+                              model_parameters=model_parameters)
+        # print(agent.model)
+        # agent.model.load_state_dict(torch.load(filename))
+        agent.model.load_state_dict(checkpoint['model_state_dict'])
+        agent.optimizer_state_dict = optimizer_state_dict
+        agent.scheduler_state_dict = scheduler_state_dict
+
+        return agent, epoch, checkpoint, best_loss
+
+    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay):
         training_info = {
             'epochs_trained': epoch + 1,
+            "name": self.name,
+            "timetravel": self.timetravel,
+            "data_normalize": self.data_normalize,
             'loss_history': history_loss,
             'best_loss': best_loss,
             'indecaters': self.get_indecaters(),
+            "datetime_format": self.get_datetime_format(),
+            "input_features": self.input_features,
             "seq_len": self.model_parameters["seq_len"],
             "pred_len": self.model_parameters["pred_len"],
             "d_model": self.model_parameters.get("d_model", 128),
@@ -181,6 +250,8 @@ class AgentPReadTime(Agent):
                 'weight_decay': weight_decay
             }
         }
+
+        filename = self.get_filename_json()
     
         with open(filename, 'w') as f:
             json.dump(training_info, f, indent=2)

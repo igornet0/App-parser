@@ -31,7 +31,8 @@ class PricePredictorModel(nn.Module):
         self.seq_len = seq_len
         
 
-        self.LSTMTimeFrameLare = LTSMTimeFrame(emb_month_size, emb_weekday_size, 
+        self.LSTMTimeFrameLare = LTSMTimeFrame(emb_month_size, 
+                                               emb_weekday_size, 
                                                num_features, 
                                                lstm_hidden, 
                                                num_layers, 

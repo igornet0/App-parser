@@ -33,7 +33,7 @@ class Indicators:
         if not all(col in data.columns for col in required_columns):
             raise ValueError("DataFrame must contain all required columns")
         
-        return data.sort_values('datetime', ignore_index=True).reset_index(drop=True)
+        return data.sort_values('datetime')
     
     @staticmethod
     def sma(data: pd.DataFrame, period=14, column='close'):
@@ -247,7 +247,7 @@ class Indicators:
     def get_shape(cls, indicator_name: str):
         """Получить форму индикатора"""
         
-        shape = cls.collumns_shape.get(indicator_name, None)
+        shape = cls.collumns_shape.get(indicator_name)
         if shape is None:
             raise ValueError(f"Unknown indicator: {indicator_name}")
         elif isinstance(shape, str):
@@ -285,14 +285,21 @@ class Indicators:
             if collumn_name in data.columns:
                 data = data.drop(columns=[collumn_name])
 
-            data[collumn_name] = result.reindex(data.index)
+            data[collumn_name] = result
+            data[collumn_name] = data[collumn_name].fillna(-1)
         
         elif isinstance(collumn_name, list):
             for i, col in enumerate(collumn_name):
                 if col in data.columns:
                     data = data.drop(columns=[col])
                 
-                data[col] = result[i].reindex(data.index)
+                data[col] = result[i]
+                data[col] = data[col].fillna(-1)
+                
+        if data.dropna().empty:
+            print(result)
+            
+            raise ValueError(f"Warning: All data is NaN after adding {collumn_name}")
 
         return data
 
@@ -305,7 +312,7 @@ class Indicators:
             'VWAP': Indicators.vwap_normalized,
         }
 
-        if indicator_name not in indicators_normalized:
+        if not indicators_normalized.get(indicator_name):
             return data
         
         collumn_name = cls.collumns_shape[indicator_name]
@@ -335,6 +342,20 @@ class Indicators:
         "CRV": crv
     }
 
+    indicators_input = {
+        "SMA": {"period": "int", "column": "str"},
+        "EMA": {"period": "int", "column": "str"},
+        "BOLLINGER": {"period": "int", "num_std": "int"},
+        "VWAP": {},
+        "RSI": {"period": "int"},
+        "ATR": {"period": "int"},
+        "MACD": {"fast": "int", "slow": "int", "signal": "int"},
+        "STOCHASTIC_OSCILLATOR": {"period": "int", "smoothing": "int"},
+        "OBV": {},
+        "MFI": {"period": "int"},
+        "CRV": {"period": "int", "trading_days": "int"}
+    }
+
     @classmethod
     def calculate(cls, indicator_name: str, data: pd.DataFrame, **kwargs):
         """Вычислить индикатор"""
@@ -355,8 +376,14 @@ if __name__ == "__main__":
     from random import randint
 
     # Загрузка данных из CSV
-    data = None
-    df = pd.DataFrame(data, parse_dates=['datetime'])
+    data = {
+        "datetime": pd.date_range(start="2022-01-01", end="2022-12-31", freq="D"), 
+        "open": [randint(1, 100) for _ in range(len(pd.date_range(start="2022-01-01", end="2022-12-31", freq="D")))],
+        "max": [randint(1, 100) for _ in range(len(pd.date_range(start="2022-01-01", end="2022-12-31", freq="D")))],
+        "min": [randint(1, 100) for _ in range(len(pd.date_range(start="2022-01-01", end="2022-12-31", freq="D")))],
+        "close": [randint(1, 100) for _ in range(len(pd.date_range(start="2022-01-01", end="2022-12-31", freq="D")))],
+        "volume": [randint(1, 100) for _ in range(len(pd.date_range(start="2022-01-01", end="2022-12-31", freq="D")))]}
+    df = pd.DataFrame(data)
 
     indecaters = {
         "SMA": {"period": "?", "column": "?"},
@@ -370,19 +397,34 @@ if __name__ == "__main__":
         "OBV": {},
         "MFI": {"period": "?"},
         "CRV": {"period": "?", "trading_days": 362880}
-    },
+    }
 
     def parser_kwargs(kwargs):
         for key, value in kwargs.items():
-            if isinstance(value, str):
+            if key == "period":
                 kwargs[key] = randint(1, 100)
+            elif key == "num_std":
+                kwargs[key] = randint(1, 100)
+            elif key == "fast":
+                kwargs[key] = randint(1, 100)
+            elif key == "slow":
+                kwargs[key] = randint(1, 100)
+            elif key == "signal":
+                kwargs[key] = randint(1, 100)
+            elif key == "smoothing":
+                kwargs[key] = randint(1, 100)
+            elif key == "trading_days":
+                kwargs[key] = randint(1, 100)
+            else:
+                kwargs[key] = "close"
 
         return kwargs
 
     for indecate_name in Indicators.indicators.keys(): 
         kwargs = indecaters[indecate_name]
-
-        df = Indicators.calculate(indecate_name, df, kwargs=kwargs)
+        kwargs = parser_kwargs(kwargs)
+        df = Indicators.calculate(indecate_name, df, **kwargs)
+        df = Indicators.calculate_normalized(indecate_name, df, **kwargs)
     
     # # Создание индикаторов
     # indicators = Indicators(df)
@@ -396,4 +438,6 @@ if __name__ == "__main__":
     # df['%K'], df['%D'] = indicators.stochastic_oscillator()
     
     # Вывод последних 5 строк
-    print(df.tail())
+    df = df.tail()
+    for collumn in df.columns:
+        print(collumn, df[collumn])

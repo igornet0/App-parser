@@ -1,6 +1,8 @@
 import torch
 import copy
 import json
+from pathlib import Path
+from datetime import datetime
 from typing import Dict, Any, Union, Generator, Tuple, Literal, List, Union
 import numpy as np
 import pandas as pd
@@ -8,6 +10,7 @@ import pandas as pd
 from backend.Dataset.indicators import Indicators
 
 import logging
+
 logger = logging.getLogger("MMM.Agent")
 
 HISTORY_SIZE = 1000
@@ -25,11 +28,15 @@ class Agent:
         discription (str): A description of the agent.
         model_parameters (dict): Additional parameters for the agent.
     """
-
+    _type = "Agent"
     model = None
     mod: Literal["train", "trade", "test"] = "test"
 
-    def __init__(self, name: str, indecaters: Dict[str, Dict[str, Any]], timetravel: str = "5m",
+    input_features = []
+
+    model_parameters_default = {}
+
+    def __init__(self, name: str = "Agent", indecaters: Dict[str, Dict[str, Any]] = {}, timetravel: str = "5m",
                  discription: str = "Agent", model_parameters: Dict[str, Any] = {},
                  data_normalize: bool = False,
                  shema_RP: Dict[str, Generator[None, None, Any]] = {},
@@ -40,6 +47,7 @@ class Agent:
 
         self.id = 1
         self.name = name
+        self.version = 1
         self.indecaters = copy.deepcopy(indecaters)
 
         if "RP" in self.name:
@@ -51,13 +59,27 @@ class Agent:
         self.timetravel = timetravel
         self.discription = discription
         self.data_normalize = data_normalize
+
+        if len(model_parameters) == 0:
+            model_parameters = self.model_parameters_default
+        elif len(model_parameters) < len(self.model_parameters_default):
+            model_parameters.update(copy.copy(self.model_parameters_default))
+
         self._model_parameters = model_parameters
+
+        self.optimizer_state_dict = None
+        self.scheduler_state_dict = None
+
         self.lr_factor = 1
         self.history = []
         self.data_buffer = []
         self.data_buffer_size = 1000
 
-        self._init_model(self.model_parameters)
+        self._init_model(self._model_parameters)
+
+    @classmethod
+    def get_type(cls):
+        return cls._type
 
     def set_id(self, id: int):
         self.id = id
@@ -121,7 +143,7 @@ class Agent:
 
     def get_column_output(self) -> List[str]:
         column_output = []
-        column_output.extend(self.model_parameters["input_features"])
+        column_output.extend(self.input_features)
         column_output.extend(self.get_indecaters_column())
         
         return column_output
@@ -159,7 +181,7 @@ class Agent:
         return shapes
     
     def get_datetime_format(self) -> Union[str, None]:
-        return self.model_parameters.get("datetime_format", "")
+        return self.model_parameters.get("datetime_format", "%m-%d %H:%M %w")
     
     def get_column_time(self) -> List[str]:
         dt_format = self.get_datetime_format()
@@ -184,7 +206,7 @@ class Agent:
     def get_count_input_features(self) -> int:
         return sum([sum(self.get_shape_indecaters().values()), 
                     self.get_datetime_format().count("%"),
-                    len(self.model_parameters["input_features"])])
+                    len(self.input_features)])
 
     def get_count_output_features(self) -> int:
         return len(self.model_parameters["output_features"])
@@ -193,18 +215,30 @@ class Agent:
                             is_cuda, effective_mp,
                             patience):
         pass
-    
-    def save_model(self, epoch, optimizer, scheduler, best_loss, filename: str):
+
+    def set_version(self, version: int):
+        self.version = version
+
+    def load_model(self, optimizer, scheduler, filename: str):
         if self.model is None:
             raise ValueError("Model is not initialized")
         
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': scheduler.state_dict(),
-            'loss': best_loss,
-        }, filename)
+        checkpoint = torch.load(filename)
+
+        # Load model state
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+        # Load optimizer state
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        # Load scheduler state
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
+        # Load additional information
+        epoch = checkpoint['epoch']
+        best_loss = checkpoint['loss']
+
+        return epoch, best_loss
     
     def get_model(self):
         return self.model
@@ -219,6 +253,9 @@ class Agent:
         data["minute"] = pd.to_datetime(data["datetime"]).dt.minute
         data["second"] = pd.to_datetime(data["datetime"]).dt.second
         data["weekday"] = pd.to_datetime(data["datetime"]).dt.strftime("%w")
+
+        # cols = ['year', 'month', 'day', 'hour', 'minute', 'second', 'weekday']
+        # data.loc[:, cols] = data[cols].astype(int)
 
         data["year"] = data["year"].astype(int)
         data["month"] = data["month"].astype(int)
@@ -244,16 +281,29 @@ class Agent:
         return data
 
     def preprocess_data_for_model(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        
+        collumn = data.columns
+        dd = data.copy()
+
+        new_data = data.copy()
         for indecater_name, params in self.get_indecaters().items():
-            data = Indicators.calculate(indecater_name, data.copy(), **params)
+            new_data = Indicators.calculate(indecater_name, new_data, **params)
 
         if self.data_normalize:
-            data = self.normalize_data(data)
+            new_data = self.normalize_data(new_data)
 
-        data = data.dropna()
+        new_data = new_data.dropna()
+
+        if len(new_data) == 0:
+            print(f"Data columns: {data.columns} - {collumn}")
+            print(dd)
+            print(data)
+            raise ValueError("Data is empty")
+        # else:
+        #     print(f"Data shape: {new_data.shape}")
+        #     print(dd)
+        #     print(f"Data columns: {new_data.columns}")
         
-        data = self._prepare_datetime(data)
+        data = self._prepare_datetime(new_data)
 
         if self.mod == "test":
             return data
@@ -326,7 +376,34 @@ class Agent:
 
         return result
     
-    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay, filename):
+    def get_filename_pth(self) -> Path:
+        from core import data_helper
+        version_s = ".".join([*str(self.version)])
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M")
+        filename = data_helper["models pth"] / self.get_type() / f"{self.name}_{self.timetravel}_{version_s}_{timestamp}.pth"
+        return filename
+    
+    def get_filename_json(self) -> Path:
+        from core import data_helper
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M")
+        filename = data_helper["models logs"] / self.get_type() / f"{self.name}_{self.timetravel}_training_log_{timestamp}.json"
+        return filename
+    
+    def save_model(self, epoch, optimizer, scheduler, best_loss):
+        if self.model is None:
+            raise ValueError("Model is not initialized")
+        
+        filename = self.get_filename_pth()
+
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'loss': best_loss,
+        }, filename)
+    
+    def save_json(self, epoch, history_loss, best_loss, base_lr, batch_size, weight_decay):
         training_info = {
             'epochs_trained': epoch + 1,
             'loss_history': history_loss,
@@ -338,6 +415,8 @@ class Agent:
                 'weight_decay': weight_decay
             }
         }
+
+        filename = self.get_filename_json()
     
         with open(filename, 'w') as f:
             json.dump(training_info, f, indent=2)

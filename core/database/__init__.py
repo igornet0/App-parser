@@ -4,9 +4,11 @@ __all__ = ("Database", "db_helper",
            "DataTimeseries", "Transaction", 
            "Portfolio", "News", "NewsCoin", "NewsHistoryCoin",
            "Agent", "ML_Model", "StatisticAgent", 
+           "AgentType", "ModelType", "AgentFeatureValue",
            "AgentAction", "ModelAction", "StatisticModel",
            "Strategy", "StrategyCoin", "StrategyAgent", 
-           "StrategyCoin", "AgentTrain", "TrainCoin")
+           "StrategyCoin", "AgentTrain", "TrainCoin",
+           "AgentFeature")
 
 from core.database.engine import Database, db_helper, select_working_url
 from core.database.base import Base
@@ -17,6 +19,7 @@ from core.database.models import (User, Coin, Timeseries,
                                   Agent, AgentAction, StatisticAgent,
                                   ML_Model, ModelAction, StatisticModel,
                                   Strategy, StrategyCoin, StrategyAgent, AgentTrain,
-                                  TrainCoin)
+                                  TrainCoin, AgentFeature, AgentType,
+                                  ModelType, AgentFeatureValue)
 
 from core.database.orm_query import *

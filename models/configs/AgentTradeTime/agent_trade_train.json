@@ -1,6 +1,6 @@
 {   
     "epochs": 100,
-    "batch_size": 50,
+    "batch_size": 150,
     "num_workers": 0,
     "lr": 1e-5,
     "weight_decay": 1e-4,
@@ -30,23 +30,23 @@
             "type": "AgentTradeTime",
             "mod": "train",
 
+            "proffit_preddict_for_buy": 0.4,
+            "proffit_preddict_for_sell": 0.6,
+
             "timetravel": "5m",
             "discription": "Agent for signal generation and trading execution in a sequence.",
             "data_normalize": true,
 
             "model_parameters": {
-                "datetime_format": "%m-%d %H:%M %w",
-                "input_features": ["max", "min", "close", "volume"],
-                "proffit_preddict_for_buy": 0.4,
-                "proffit_preddict_for_sell": 0.6,
                 "pred_len": 10,
                 "seq_len": 30,
                 "hidden_size": 128,
                 "num_layers": 4,
                 "emb_month_size": 8,
                 "emb_weekday_size": 4,
+                "lstm_hidden": 256,
                 "n_heads": 4,
-                "dropout": 0.5
+                "dropout": 0.2
             }
         },
         {
@@ -69,21 +69,21 @@
             "type": "AgentTradeTime",
             "mod": "train",
 
+            "proffit_preddict_for_buy": 0.4,
+            "proffit_preddict_for_sell": 0.6,
+
             "timetravel": "15m",
             "discription": "Agent for signal generation and trading execution in a sequence.",
             "data_normalize": true,
 
             "model_parameters": {
-                "datetime_format": "%m-%d %H:%M %w",
-                "input_features": ["max", "min", "close", "volume"],
-                "proffit_preddict_for_buy": 0.3,
-                "proffit_preddict_for_sell": 0.6,
-                "pred_len": 5,
+                "pred_len": 10,
                 "seq_len": 30,
                 "hidden_size": 128,
-                "num_layers": 2,
+                "num_layers": 4,
                 "emb_month_size": 8,
                 "emb_weekday_size": 4,
+                "lstm_hidden": 256,
                 "n_heads": 4,
                 "dropout": 0.3
             }
@@ -94,7 +94,7 @@
         "period": {
             "type": "integer",
             "minimum": 5,
-            "maximum": 20
+            "maximum": 50
         },
         "column": {
             "type": "string",

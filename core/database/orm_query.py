@@ -1,12 +1,16 @@
 # файл для query запросов
 from typing import Tuple, Dict, Literal
+from fastapi import HTTPException
 from datetime import datetime
 from sqlalchemy import select, update, delete, desc, asc, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
+from core import data_manager
 from core.database.models import (User, Coin, Timeseries, 
                                   DataTimeseries, Transaction, Portfolio, 
+                                  AgentFeature, AgentType, ModelType,
+                                  Feature, FeatureArgument, AgentFeatureValue,
                                   News, NewsCoin, NewsHistoryCoin,
                                   Agent, AgentAction, StatisticAgent,
                                   ML_Model, ModelAction, StatisticModel,
@@ -92,23 +96,189 @@ async def orm_add_user_balance(session: AsyncSession, user_id: int, amount: floa
     await session.execute(query)
     await session.commit()
 
+##################### Добавляем Feature в БД #####################################
 
-##################### Добавляем Agents и Models в БД #####################################
-async def orm_add_agent(session: AsyncSession, type_agent: str, path_model: str):
-    agent = Agent(type_agent=type_agent, path_model=path_model)
-    session.add(agent)
+async def orm_add_feature(session: AsyncSession, feature_name: str):
+    session.add(Feature(name=feature_name))
     await session.commit()
 
+async def orm_get_feature_by_name(session: AsyncSession, feature_name: str) -> Feature:
+    query = select(Feature).where(Feature.name == feature_name)
+    result = await session.execute(query)
+    return result.scalars().first()
+
+async def orm_get_feature_by_id(session: AsyncSession, feature_id: int) -> Feature:
+    query = select(Feature).where(Feature.id == feature_id)
+    result = await session.execute(query)
+    return result.scalars().first()
+
+async def orm_get_features(session: AsyncSession) -> list[Feature]:
+    query = select(Feature)
+    query = query.options(joinedload(Feature.arguments))
+
+    result = await session.execute(query)
+
+    return result.unique().scalars().all()
+
+async def orm_add_features_argument(session: AsyncSession, arguments: list[FeatureArgument]):
+    session.add_all(arguments)
+    await session.commit()
+
+async def orm_add_feature_argument(session: AsyncSession, feature_id: int, argument_name: str, type_argument: str):
+    session.add(FeatureArgument(feature_id=feature_id, 
+                                name=argument_name,
+                                type=type_argument))
+    await session.commit()
+
+async def orm_get_feature_argument(session: AsyncSession, feature_id: int) -> list[FeatureArgument]:
+    query = select(FeatureArgument).where(FeatureArgument.feature_id == feature_id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+##################### Добавляем Agents и Models в БД #####################################
+
+async def orm_get_agent_by_name(session: AsyncSession, agent_name: str) -> Agent:
+    query = select(Agent).where(Agent.name == agent_name)
+    result = await session.execute(query)
+    return result.scalars().first()
+
+async def orm_add_agent(session: AsyncSession, agent_data: Agent):
+
+    if agent_data.path_model:
+        path_model = agent_data.path_model
+        if not path_model.endswith(".pth"):
+            path_model += ".pth"
+    else:
+        path_model = f"{agent_data.name}_{agent_data.version}.pth"
+
+    agent = Agent(
+        name = agent_data.name,
+        type = agent_data.type,
+        timeframe = agent_data.timeframe,
+        path_model = path_model,
+        a_conficent = agent_data.a_conficent,
+        active = agent_data.active,
+        version = agent_data.version)
+
+    session.add(agent)
+
+    await session.flush()
+
+    features = [
+            AgentFeature(
+                agent_id = agent.id,
+                feature_id = feature.id,
+                feature_value = [AgentFeatureValue(value=value, feature_name=par_name) for par_name, value in feature.parameters.items()]
+        ) for feature in agent_data.features]
+
+    session.add_all(features)
+
+    await session.flush()
+
+    train_data = None
+
+    if agent_data.train_data:
+        train_data = AgentTrain(
+            agent_id = agent.id,
+            epochs = agent_data.train_data.epochs,
+            batch_size = agent_data.train_data.batch_size,
+            learning_rate = agent_data.train_data.learning_rate,
+            weight_decay = agent_data.train_data.weight_decay,
+        )
+
+        session.add(train_data)
+
+        await session.flush()
+
+        session.add_all([TrainCoin(train_id=train_data.id, coin_id=coin_id) for coin_id in agent_data.coins])
+
+    await session.commit()
+
+    await session.flush()
+
+    features_data = []
+
+    for feature in features:
+        parameters = {value.feature_name: value.value for value in feature.feature_value}
+        features_data.append({
+            "id": feature.id,
+            "feature_id": feature.feature_id,
+            "parameters": parameters
+        })
+
+    return {
+            "id": agent.id,
+            "type": agent.type,
+            "path_model": agent.path_model,
+            "active": agent.active,
+            "created": agent.created.isoformat() if agent.created else None,
+            "name": agent.name,
+            "a_conficent": agent.a_conficent,
+            "version": agent.version,
+            "updated": agent.updated.isoformat() if agent.updated else None,
+            "features": features_data
+        }, train_data
+
+
+async def orm_add_agent_feature(session: AsyncSession, agent_id: int, feature_id: int):
+    agentfeature = AgentFeature(agent_id=agent_id, feature_id=feature_id)
+    session.add(agentfeature)
+
+    await session.commit()
+
+    return agentfeature
+
+async def orm_get_train_agents(session: AsyncSession, status: str = None) -> list[Agent]:
+    query = select(AgentTrain)
+
+    if status:
+        query = query.where(AgentTrain.status == status)
+
+    result = await session.execute(query)
+
+    return result.scalars().all()
+
+async def orm_get_train_agent(session: AsyncSession, agent_id: int, status: str = None) -> AgentTrain:
+    query = select(AgentTrain).where(AgentTrain.agent_id == agent_id)
+
+    if status:
+        query = query.where(AgentTrain.status == status)
+
+    result = await session.execute(query)
+    return result.scalars().all()
+
+async def orm_add_agent_feature_value(session: AsyncSession, agent_id: int, feature_id: int, values: list):
+    
+    agent_feature = AgentFeature(agent_id=agent_id, feature_id=feature_id,
+                                 feature_value=[AgentFeatureValue(value=value) for value in values])
+    # session.add(agent_feature)
+    # session.flush()
+    # feature_values = [
+    #     AgentFeatureValue(agent_feature_id=agent_feature.id, value=value)
+    #     for value in values
+    # ]
+
+    session.add_all(agent_feature)
+    await session.commit()
+
+    return agent_feature
+
+async def orm_get_agent_feature(session: AsyncSession, agent_id: int) -> list[AgentFeature]:
+    query = select(AgentFeature).where(AgentFeature.agent_id == agent_id)
+    result = await session.execute(query)
+    return result.scalars().all()
+
 async def orm_get_agents(session: AsyncSession, type_agent: str = None, 
-                         id_agent: int = None, version: str = None, 
-                         active: bool = None, query_return: bool = False) -> list[Agent] | Select:
+                         agent_id: int = None, version: str = None, 
+                         active: bool = None, query_return: bool = False,
+                         status: Literal["train", "open", "close"] = None) -> list[Agent] | Select:
     query = select(Agent)
 
     if type_agent:
         query = query.where(Agent.type == type_agent)
 
-    if id_agent:
-        query = query.where(Agent.id == id_agent)
+    if agent_id:
+        query = query.where(Agent.id == agent_id)
 
     if version:
         query = query.where(Agent.version == version)
@@ -116,12 +286,98 @@ async def orm_get_agents(session: AsyncSession, type_agent: str = None,
     if active:
         query = query.where(Agent.active == active)
 
+    if status:
+        query = query.where(Agent.status == status)
+
     if query_return:
         return query
-    
-    result = await session.execute(query)
 
+    stmt = (
+        query
+        .options(
+            selectinload(Agent.features)
+            .selectinload(AgentFeature.feature_value)
+        )
+    )
+
+    result = await session.execute(stmt)
+    agents = result.scalars().all()
+    
+    if not agents:
+        return None
+
+    agents_features_data = []
+
+    for agent in agents:
+        features_data = []
+
+        for feature in agent.features:
+            parameters = {value.feature_name: value.value for value in feature.feature_value}
+            feature_t = await orm_get_feature_by_id(session, feature.feature_id)
+            features_data.append({
+                "id": feature_t.id,
+                "name": feature_t.name,
+                "feature_id": feature.feature_id,
+                "parameters": parameters
+            })
+
+        agents_features_data.append({
+            "id": agent.id,
+            "type": agent.type,
+            "status": agent.status,
+            "timeframe": agent.timeframe,
+            "path_model": agent.path_model,
+            "active": agent.active,
+            "created": agent.created.isoformat() if agent.created else None,
+            "name": agent.name,
+            "a_conficent": agent.a_conficent,
+            "version": agent.version,
+            "updated": agent.updated.isoformat() if agent.updated else None,
+            "features": features_data
+        })
+
+    return agents_features_data
+
+async def orm_get_agents_type(session: AsyncSession) -> list[AgentType]:
+    query = select(AgentType)
+    result = await session.execute(query)
     return result.scalars().all()
+
+async def orm_delete_agent(session: AsyncSession, agent_id: int):
+    agent = await session.get(Agent, agent_id)
+    if agent:
+        # Удаляем дочерние объекты
+        features = await orm_get_agent_feature(session, agent_id)
+        await session.execute(delete(AgentAction).where(AgentAction.agent_id == agent_id))
+        [await session.execute(delete(AgentFeatureValue).where(AgentFeatureValue.agent_feature_id == feature.id)) for feature in features]
+
+        await session.execute(delete(AgentFeature).where(AgentFeature.agent_id == agent_id))
+        await session.execute(delete(StatisticAgent).where(StatisticAgent.agent_id == agent_id))
+
+        trains = await orm_get_train_agent(session, agent_id)
+        [await session.execute(delete(TrainCoin).where(TrainCoin.train_id == train.id)) for train in trains]
+        await session.execute(delete(AgentTrain).where(AgentTrain.agent_id == agent_id))
+        
+        # Удаляем агента
+        await session.delete(agent)
+        await session.commit()
+
+# async def orm_delete_agent_feature(session: AsyncSession, agent_id: int, feature_id: int):
+#     # query = delete(AgentFeature).where(AgentFeature.agent_id == agent_id, AgentFeature.feature_id == feature_id)
+#     feature = await orm_get_agent_feature_by_id(session, agent_id, feature_id)
+#     if feature:
+#         await session.execute(delete(AgentFeatureValue).where(AgentFeatureValue.agent_feature_id == feature_id))
+#         await session.delete(feature)
+
+#         await session.commit()
+
+# async def orm_delete_agent_train(session: AsyncSession, agent_id: int):
+#     train = await session.get(AgentTrain, agent_id)
+#     if train:
+#         await session.execute(delete(TrainCoin).where(TrainCoin.train_id == train.id))
+#         await session.delete(train)
+
+#         await session.commit()
 
 async def orm_get_agent_by_id(session: AsyncSession, id: int) -> Agent:
     query = select(Agent).where(Agent.id == id)
@@ -141,6 +397,9 @@ async def orm_get_agents_options(session: AsyncSession, type_agent: str = None,
 
     if mod in ["stata", "all"]:
         query = query.options(joinedload(Agent.stata))
+
+    if mod in ["all"]:
+        query = query.options(joinedload(Agent.features))
 
     result = await session.execute(query)
 

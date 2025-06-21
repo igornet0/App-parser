@@ -192,6 +192,13 @@ const CoinsTabContent = () => {
     return setSelectedCoin(coins.find(coin => coin.id === Number(select_coin)));
   };
 
+  const selectTimeframe = (select_timeframe) => {
+    setChartData([])
+    setVolumeData([]);
+    setTimestamp(null)
+    return setTimeframe(select_timeframe);
+  };
+
   // Конфигурация графика
   const formatNumber = (value, decimals = 5) => {
     return value.toLocaleString('ru-RU', {
@@ -508,7 +515,7 @@ const CoinsTabContent = () => {
                 {timeframes.map(tf => (
                   <button
                     key={tf.value}
-                    onClick={() => setTimeframe(tf.value)}
+                    onClick={() => selectTimeframe(tf.value)}
                     className={`px-3 py-1 text-sm rounded-md transition ${
                       timeframe === tf.value
                         ? 'bg-blue-600 text-white'

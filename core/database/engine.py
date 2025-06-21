@@ -99,21 +99,40 @@ class Database:
                 await session.close()
 
     async def _create_tables(self):
-        from core import data_helper
-        from core.database.orm_query import orm_add_coin
+        # from core import data_helper
+        # from backend.Dataset import Indicators
+        # from core.database.orm_query import (orm_add_coin, orm_add_feature, 
+        #                                      orm_get_feature_by_name,
+        #                                      orm_add_feature_argument)
 
         async with self.engine.begin() as conn:
             logger.info("Creating tables")
             await conn.run_sync(Base.metadata.create_all)
 
-        async with self.async_session() as session:
-            for coin in data_helper.coin_list:
-                logger.info(f"Adding coin {coin}")
-                await orm_add_coin(session, coin)
+        # async with self.async_session() as session:
+        #     for coin in data_helper.coin_list:
+        #         logger.info(f"Adding coin {coin}")
+        #         await orm_add_coin(session, coin)
+
+        #     for indicator_name, iunput_args in Indicators.indicators_input.items():
+
+        #         feature = await orm_get_feature_by_name(session, indicator_name)
+
+        #         if feature:
+        #             continue
+
+        #         logger.info(f"Adding indicator {indicator_name}")
+
+        #         await orm_add_feature(session, indicator_name)
+        #         feature = await orm_get_feature_by_name(session, indicator_name)
+
+        #         for iunput_arg, type in iunput_args.items():
+        #             await orm_add_feature_argument(session, feature.id, iunput_arg, type)
 
 # Асинхронная инициализация db_helper
 async def initialize_db_helper():
     working_url = await select_working_url()
+
     return Database(
         url=working_url,
         echo=settings.db.echo,

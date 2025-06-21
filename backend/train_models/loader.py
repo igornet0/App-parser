@@ -24,7 +24,7 @@ logger = logging.getLogger("train_models.loader")
 
 class Loader:
 
-    def __init__(self, agent_type: str, model_type: str = "MMM"):
+    def __init__(self, agent_type: str = "", model_type: str = "MMM"):
         self.agent_type = agent_type
         self.model_type = model_type
         self._multi_agent = False
@@ -38,8 +38,7 @@ class Loader:
         RP_I = config_model.get("RANDOM_INDICATETS", False)
 
         try:
-            agent_manager = AgentManager(agent_type=self.agent_type,
-                                         config=config_model,
+            agent_manager = AgentManager(config=config_model,
                                          count_agents=count_agents,
                                          schema_RP=self._load_schema(self.agent_type, self.model_type),
                                          RP_I=RP_I)
@@ -96,13 +95,14 @@ class Loader:
         # Загрузка данных
         loader = self.load_agent_data(loaders, agent, batch_size, mixed)
 
+
         optimizer, scheduler, scaler = agent.init_model_to_train(base_lr, weight_decay, 
                                   is_cuda, effective_mp, patience)
         
         best_loss = float('inf')
         history_loss = []
         history_state = []
-        
+        version = 0
         # Цикл эпох
         for epoch in range(epochs):
             epoch_loss = 0.0
@@ -114,7 +114,7 @@ class Loader:
                         desc=f"Epoch {epoch+1}/{epochs} | Agent {agent.id}| ",
                         bar_format="{l_bar}|{bar:20}|{r_bar}", 
                         leave=False)
-            
+
             # Итерация по батчам с прогресс-баром
             for batch_idx, batch in pbar:
                 
@@ -150,7 +150,6 @@ class Loader:
                     optimizer.step()
                 
                 current_loss = loss.item()
-                scheduler.step(current_loss)
                 epoch_loss += current_loss
                 pbar.set_postfix({
                         'loss': f"{current_loss:.4f}",  # Текущий loss батча
@@ -160,9 +159,12 @@ class Loader:
 
             # Статистика эпохи
             avg_loss = epoch_loss / len(loader)
+            scheduler.step(avg_loss)  
             history_loss.append(avg_loss)
             lr = optimizer.param_groups[0]['lr']
             epoch_time = time.time() - start_time
+            version += 1
+            agent.set_version(version)
             
             # Форматированный вывод
             status = "🟢 Improved!" if avg_loss < best_loss else "🟡 No improvement"
@@ -178,14 +180,11 @@ class Loader:
                 best_loss = avg_loss
                 history_state.append(True)
                 if len(history_state) % 10 == 0:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-                    filename = data_helper["models pth"] / f"{agent.name}_{agent.id}_{timestamp}_{id(agent)}.pth"
 
                     agent.save_model(epoch=epoch, 
                                      optimizer=optimizer, 
                                      scheduler=scheduler, 
-                                     best_loss=best_loss, 
-                                     filename=filename)
+                                     best_loss=best_loss)
             else:
                 history_state.append(False)
                 if sum(history_state[-patience:]) == 0:
@@ -196,17 +195,13 @@ class Loader:
         # model.load_state_dict(torch.load(agent.weights_path))
         print(f"\n⭐ Agent {agent.id} Best Loss: {best_loss:.4f}\n")
         
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        filename = data_helper["models logs"] / f"agent_{agent.id}_training_log_{timestamp}_{id(agent)}.json"
-        
         agent.save_json(
             epoch=epoch, 
             history_loss=history_loss, 
             best_loss=best_loss, 
             base_lr=base_lr, 
             batch_size=batch_size, 
-            weight_decay=weight_decay, 
-            filename=filename)
+            weight_decay=weight_decay)
 
         return history_loss
 

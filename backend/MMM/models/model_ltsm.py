@@ -53,7 +53,7 @@ class LTSMTimeFrame(nn.Module):
         
         # Основной LSTM блок
         self.lstm = nn.LSTM(
-            input_size=num_features + 16,  # Основные фичи + временные фичи
+            input_size=num_features + 11,  # Основные фичи + временные фичи
             hidden_size=lstm_hidden,
             num_layers=num_layers,
             batch_first=True,
@@ -68,7 +68,7 @@ class LTSMTimeFrame(nn.Module):
             batch_first=True
         )
 
-        self.layer_norm = nn.LayerNorm(num_features + 16)
+        self.layer_norm = nn.LayerNorm(num_features + 11)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, time):
@@ -79,6 +79,7 @@ class LTSMTimeFrame(nn.Module):
         
         # 2. Объединение с основными фичами
         combined = torch.cat([x, time_features], dim=-1)  # [batch_size, seq_len, num_features+16]
+    
         combined = self.layer_norm(combined)
         
         # 3. LSTM обработка

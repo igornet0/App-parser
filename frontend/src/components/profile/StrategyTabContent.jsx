@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { get_coins, get_coin_time_line, get_agents } from '../../services/strategyService';
 import { useNavigate } from 'react-router-dom';
 
 const StrategyTabContent = () => {
@@ -24,27 +25,21 @@ const StrategyTabContent = () => {
       try {
         setIsLoading(true);
 
-        const coinsResponse = await fetch('/api/coins');
-        if (!coinsResponse.ok) throw new Error('Ошибка загрузки монет');
-        const coinsData = await agentsResponse.json();
+        const coinsData = await get_coins();
         setCoins(coinsData);
         
         // Загрузка агентов
-        const agentsResponse = await fetch('/api/agents');
-        if (!agentsResponse.ok) throw new Error('Ошибка загрузки агентов');
-        const agentsData = await agentsResponse.json();
+        const agentsData = await get_agents(status="open");
         setAgents(agentsData);
         
         // Загрузка моделей риска
         const riskResponse = await fetch('/api/risk_models');
-        if (!riskResponse.ok) throw new Error('Ошибка загрузки моделей риска');
-        const riskData = await riskResponse.json();
+        const riskData = [];
         setRiskModels(riskData);
         
         // Загрузка моделей ордеров
         const orderResponse = await fetch('/api/order_models');
-        if (!orderResponse.ok) throw new Error('Ошибка загрузки моделей ордеров');
-        const orderData = await orderResponse.json();
+        const orderData = [];
         setOrderModels(orderData);
         
       } catch (err) {
@@ -137,7 +132,6 @@ const StrategyTabContent = () => {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Символ</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Цена</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Изменение (24ч)</th>
             </tr>
@@ -159,13 +153,11 @@ const StrategyTabContent = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   <div className="flex items-center">
-                    <img src={coin.image} alt={coin.name} className="w-6 h-6 mr-2" />
                     {coin.name}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 uppercase">{coin.symbol}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  ${coin.current_price?.toLocaleString() || 'N/A'}
+                  ${coin.price_now?.toLocaleString() || 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span className={`${coin.price_change_percentage_24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -190,9 +182,17 @@ const StrategyTabContent = () => {
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-gray-800">Шаг 2: Выберите агентов</h3>
+        <div>
+          <button 
+            onClick={() => setStep(1)}
+            className="mr-4 px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            ← Назад
+          </button>
+          <h3 className="text-xl font-semibold text-gray-800 inline-block">Шаг 2: Выберите агентов</h3>
+        </div>
         <button 
-          onClick={() => setStep(2)}
+          onClick={() => setStep(3)}
           disabled={!canProceed()}
           className={`px-4 py-2 rounded-md font-medium ${
             canProceed() 
@@ -231,17 +231,17 @@ const StrategyTabContent = () => {
                   />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{agent.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.model_type}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{agent.type}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {agent.accuracy ? (agent.accuracy * 100).toFixed(2) + '%' : 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    agent.status === 'active' ? 'bg-green-100 text-green-800' : 
-                    agent.status === 'training' ? 'bg-yellow-100 text-yellow-800' : 
-                    'bg-red-100 text-red-800'
+                     agent.active ? 'bg-green-100 text-green-800' :
+                    !agent.active && agent.status != 'train' ? 'bg-red-100 text-red-800' : 
+                    agent.status === 'train' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {agent.status}
+                     {agent.status === 'train' ? 'Обучается' : agent.status === 'open' ? 'Открыт' : 'Закрыт'}
                   </span>
                 </td>
               </tr>
@@ -258,21 +258,21 @@ const StrategyTabContent = () => {
     </div>
   );
 
-  // Рендеринг шага 4: Выбор моделей
+  // Рендеринг шага 3: Выбор моделей
   const renderStep3 = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <button 
-            onClick={() => setStep(1)}
+            onClick={() => setStep(2)}
             className="mr-4 px-4 py-2 text-gray-600 hover:text-gray-800"
           >
             ← Назад
           </button>
-          <h3 className="text-xl font-semibold text-gray-800 inline-block">Шаг 2: Выберите модели</h3>
+          <h3 className="text-xl font-semibold text-gray-800 inline-block">Шаг 3: Выберите модели</h3>
         </div>
         <button 
-          onClick={() => setStep(3)}
+          onClick={() => setStep(4)}
           disabled={!canProceed()}
           className={`px-4 py-2 rounded-md font-medium ${
             canProceed() 
@@ -361,12 +361,12 @@ const StrategyTabContent = () => {
       <div className="flex justify-between items-center">
         <div>
           <button 
-            onClick={() => setStep(2)}
+            onClick={() => setStep(3)}
             className="mr-4 px-4 py-2 text-gray-600 hover:text-gray-800"
           >
             ← Назад
           </button>
-          <h3 className="text-xl font-semibold text-gray-800 inline-block">Шаг 3: Настройка параметров</h3>
+          <h3 className="text-xl font-semibold text-gray-800 inline-block">Шаг 4: Настройка параметров</h3>
         </div>
         <button 
           onClick={handleCreateStrategy}

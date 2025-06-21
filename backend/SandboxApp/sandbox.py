@@ -23,6 +23,7 @@ class Sandbox:
     def __init__(self, data: List[DatasetTimeseries] = [], 
                  agents: List[Any] = [], 
                  db_use: bool = False):
+        
         if db_use:
             self.data = asyncio.run(self._load_data_fron_db())
             self.agents = asyncio.run(self._load_agents_from_db())
@@ -32,11 +33,12 @@ class Sandbox:
 
         self._box = None
 
-    def create_box(self, type_box: Literal["Box", "Exhange"], **kwargs) -> Union[Box, Exhange]:
-        if type_box not in self.type_box:
+    @classmethod
+    def create_box(cls, type_box: Literal["Box", "Exhange"], **kwargs) -> Union[Box, Exhange]:
+        if cls.type_box.get(type_box) is None:
             raise ValueError(f"Unknown box type: {type_box}")
         
-        box = self.type_box[type_box](**kwargs)
+        box = cls.type_box[type_box](**kwargs)
 
         return box
     

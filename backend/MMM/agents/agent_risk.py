@@ -5,22 +5,28 @@ import torch
 from backend.Dataset.indicators import Indicators
 
 from .agent import Agent
-from .models import CryptoImpactModel
+from ..models import RiskAwareSACNetwork
 
-class AgentNews(Agent):
+class AgentRisk(Agent):
+
+    _type = "AgentRisk"
     
-    model = CryptoImpactModel
+    model = RiskAwareSACNetwork
 
     target_column = ["close"]
 
-    def _init_model(self, model_parameters: Dict[str, Any]) -> CryptoImpactModel:
+    def _init_model(self, model_parameters: Dict[str, Any]) -> RiskAwareSACNetwork:
         """
-        model_parameters (dict): The configuration model for the agent containing parameters such as
-            input features, sequence length, prediction length, model dimension, number of heads,
-            and dropout rate.
+        Initializes the model for the agent.
+
+        Args:
+            model_parameters (dict): The configuration model for the agent containing parameters such as
+                input features, sequence length, prediction length, model dimension, number of heads,
+                and dropout rate.
 
         Returns:
-            CryptoImpactModel: An instance of the CryptoImpactModel class.
+            RiskAwareSACNetwork: An instance of the RiskAwareSACNetwork class.
+
         """
         # n_indicators = sum(self.get_shape_indecaters().values())
         # input_features = model_parameters.get("input_features", ['close', 'max', 'min', 'volume'])
@@ -37,7 +43,7 @@ class AgentNews(Agent):
         num_layers = model_parameters.get("num_layers", 2)
         dropout = model_parameters.get("dropout", 0.2)
 
-        self.model = CryptoImpactModel(pred_len=pred_len,
+        self.model = RiskAwareSACNetwork(pred_len=pred_len,
                                     seq_len=seq_len,
                                     num_features=input_features,
                                     n_heads=n_heads,

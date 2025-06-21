@@ -48,6 +48,19 @@ const ProfileSidebar = ({ activeTab, setActiveTab, onLogout }) => {
           </li>
           <li>
             <button 
+              className={`w-full text-left p-3 rounded-lg transition ${activeTab === 'models' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
+              onClick={() => setActiveTab('models')}
+            >
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+                <span>Модели</span>
+              </div>
+            </button>
+          </li>
+          <li>
+            <button 
               className={`w-full text-left p-3 rounded-lg transition ${activeTab === 'strategy' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
               onClick={() => setActiveTab('strategy')}
             >
@@ -55,14 +68,27 @@ const ProfileSidebar = ({ activeTab, setActiveTab, onLogout }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                <span>Стратегии</span>
+                <span>Создание стратегии</span>
               </div>
             </button>
           </li>
-
+          <li>
+            <button
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition ${
+                activeTab === 'strategys' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'
+              }`}
+              onClick={() => setActiveTab('strategys')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+              </svg>
+              <span>Стратегии</span>
+            </button>
+          </li>
           <li>
           <button 
-            className={`w-full text-left p-3 rounded-lg transition ${activeTab === 'coins' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
+            className={`w-full text-left p-3 rounded-lg transition ${
+              activeTab === 'coins' ? 'bg-white text-blue-900' : 'hover:bg-blue-800'}`}
             onClick={() => setActiveTab('coins')}
           >
             <div className="flex items-center">

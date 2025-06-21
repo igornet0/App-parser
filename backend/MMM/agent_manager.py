@@ -1,8 +1,7 @@
 import copy
 from typing import List
 
-from .agent_pread_time import AgentPReadTime, Agent
-from .agent_trade_time import AgentTradeTime
+from .agents import *
 
 import logging
 
@@ -20,16 +19,17 @@ class AgentManager:
     """
     
     type_agents = {
-        "AgentPReadTime": AgentPReadTime,
+        "AgentPredTime": AgentPredTime,
         "AgentTradeTime": AgentTradeTime,
+        "AgentNews": AgentNews,
         # "AgentPReadTimeMulti": AgentPReadTimeMulti,
         # "AgentPReadTimeMultiRP": AgentPReadTimeMultiRP
     }        
 
-    def __init__(self, agent_type: str, config: dict = {}, count_agents: int = 1, schema_RP: dict = {},
+    def __init__(self, config: dict = {}, count_agents: int = 1, schema_RP: dict = {},
                  RP_I: bool = False):
         
-        self.agent_type = agent_type
+        # self.agent_type = agent_type
         self.agent = {}
         self._multi_agent = False
         self.RP_I = RP_I
@@ -38,7 +38,7 @@ class AgentManager:
 
     def _init_config(self, count_agents, config: dict, schema_RP: dict = {}):
 
-        if len(config.get("agents")) > 1:
+        if len(config.get("agents", 0)) > 1:
             self._multi_agent = True
 
         elif not config.get("agents"):
@@ -51,6 +51,8 @@ class AgentManager:
 
             if count_agents == 1:
                 self.agent = self.create_agent(copy.deepcopy(agent_config), schema_RP)
+                self.agent.set_id(1)
+                self.agent.set_mode(agent_config.get("mod", "test"))
             else:
                 self._multi_agent = True
                 self.agent = []
@@ -62,13 +64,28 @@ class AgentManager:
 
     def create_agent(self, agent: dict, schema_RP: dict = {}) -> Agent:
 
+        if agent["type"] == "AgentTradeTime":
+
+            return self.get_agent(agent["type"])(
+                name=agent["name"],
+                indecaters=agent["indecaters"],
+                timetravel=agent["timetravel"],
+                discription=agent.get("discription", ""),
+                model_parameters=agent.get("model_parameters", {}),
+                data_normalize=agent.get("data_normalize", True),
+                shema_RP=schema_RP,
+                RP_I=self.RP_I,
+                proffit_preddict_for_buy=agent.get("proffit_preddict_for_buy", 0.9),
+                proffit_preddict_for_sell=agent.get("proffit_preddict_for_sell", 0.9)
+            )
+        
         return self.get_agent(agent["type"])(
                 name=agent["name"],
                 indecaters=agent["indecaters"],
                 timetravel=agent["timetravel"],
-                discription=agent["discription"],
-                model_parameters=agent["model_parameters"],
-                data_normalize=agent["data_normalize"],
+                discription=agent.get("discription", ""),
+                model_parameters=agent.get("model_parameters", {}),
+                data_normalize=agent.get("data_normalize", True),
                 shema_RP=schema_RP,
                 RP_I=self.RP_I
             )
@@ -80,12 +97,12 @@ class AgentManager:
         else:
             raise ValueError(f"Agent {agent_type} not found in available models.")
         
-    def get_agents(self) -> List[Agent]:
+    def get_agents(self) -> List[Agent] | Agent:
         return self.agent
-    
+
     def load_multi_agent(self, count_agents: int, config_model:dict, schema_RP: dict) -> List[Agent]:
         
-        logger.info(f"Loading multi agent: {self.agent_type}")
+        # logger.info(f"Loading multi agent: {self.agent_type}")
 
         if len(config_model.get("agents")) > 1:
             self._multi_agent = True

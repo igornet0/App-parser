@@ -40,14 +40,15 @@ class BatchGenerator:
         time_line_buffer = []
 
         loaders = [loader.get_loader() for loader in loaders]
-
+        
         while loaders:
+
             for i, loader in enumerate(loaders):
                 loader_end = len(time_line_buffer)
-
                 for time_line in loader:
-
+                    
                     time_line_buffer.append(time_line)
+
                     if mixed:
                         break
                     else:
@@ -59,13 +60,14 @@ class BatchGenerator:
                     yield time_line_buffer
                     time_line_buffer = []
                     continue
-
-                if not len(time_line_buffer) - loader_end or not time_line_buffer:
+                
+                if loader_end == len(time_line_buffer) or not time_line_buffer:
                     loaders.pop(i)
                     break
 
         if time_line_buffer and len(time_line_buffer) == bath_size:
             yield time_line_buffer
+        
     
 class TimeSeriesTransform(IterableDataset):
 
@@ -89,8 +91,8 @@ class TimeSeriesTransform(IterableDataset):
 
     def create_gen_batch(self, loaders: List, batch_size, mixed) -> BatchGenerator:
         return BatchGenerator(loaders=copy.deepcopy(loaders), 
-                                          batch_size=batch_size, 
-                                          mixed=mixed)
+                                batch_size=batch_size, 
+                                mixed=mixed)
     
     def load_time_line(self, time_line):
         for i, data in enumerate(time_line):
@@ -99,42 +101,47 @@ class TimeSeriesTransform(IterableDataset):
     def __iter__(self) -> iter:
         if self._gen.peek() is None:
             self._gen = self.create_gen_batch(self.loaders, self.batch_size, self.mixed)
-
+        
         bath_data = []
-
+        
         while self._gen.peek() is not None:
-
+            
             time_line = next(self._gen) 
-
-            if not self.time_line_loaders:
+            
+            if not len(self.time_line_loaders):
                 self.load_time_line(time_line)
             
-            while self.time_line_loaders:
-                
+            while len(self.time_line_loaders):
+
                 for i, batch in self.time_line_loaders.items():
-                    batch_end = len(bath_data)
+                    
+                    len_bath = len(bath_data)
 
                     for data in batch:
-                        bath_data.append(data)
 
+                        bath_data.append(data)
+                        
                         if self.mixed:
                             break
 
                         if len(bath_data) == self.batch_size:
+                            
                             yield self.agent.process_batch(bath_data)
                             bath_data = []
+
 
                     if len(bath_data) == self.batch_size:
                         yield self.agent.process_batch(bath_data)
                         bath_data = []
                         continue
-
-                    if not len(bath_data) - batch_end or not bath_data:
+                    
+                    if len(bath_data) - len_bath == 0 or not bath_data:
                         self.time_line_loaders.pop(i)
                         break
-            
+
+        
     def __len__(self):
         if self._len is None:
-            self._len = len([data for data in self])
+            self._len = len([1 for _ in self])
 
         return self._len

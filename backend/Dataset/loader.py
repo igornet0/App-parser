@@ -1,7 +1,10 @@
 from typing import Optional, Callable, Iterable, Generator
+from collections import namedtuple
 import pandas as pd
 
 from core.utils.tesseract_img_text import timetravel_seconds_int
+
+Data = namedtuple('DataTimeseries' , 'datetime open max min close volume')
 
 class LoaderTimeLine:
 
@@ -33,6 +36,14 @@ class LoaderTimeLine:
             timetravel = int(timetravel.replace("d", ""))
             if data["datetime"].day % timetravel == 0 and data["datetime"].hour == 0 and data["datetime"].minute == 0:
                 return True
+        elif "M" in timetravel:
+            timetravel = int(timetravel.replace("M", ""))
+            if data["datetime"].month % timetravel == 0 and data["datetime"].day == 1 and data["datetime"].hour == 0 and data["datetime"].minute == 0:
+                return True
+        elif "y" in timetravel:
+            timetravel = int(timetravel.replace("y", ""))
+            if data["datetime"].year % timetravel == 0 and data["datetime"].month == 1 and data["datetime"].day == 1 and data["datetime"].hour == 0 and data["datetime"].minute == 0:
+                return True
             
         return False
 
@@ -60,6 +71,17 @@ class LoaderTimeLine:
             else:
                 if data_t:
                     data_t.append(data)
+
+    def get_data(self) -> list[Data]:
+
+        if self.timetravel != "5m":
+            self.dataset = self.bath_timetravel(self.dataset, self.timetravel)
+
+        time_line = []
+        for data in self.dataset:
+            time_line.append(Data(data["datetime"], data["open"], data["max"], data["min"], data["close"], data["volume"]))
+
+        return time_line
 
     def get_loader(self) -> Generator[pd.DataFrame, None, None]:
         time_line = []

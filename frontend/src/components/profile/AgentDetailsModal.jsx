@@ -1,6 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 
-const AgentDetailsModal = ({ agent, onClose }) => {
+const AgentDetailsModal = ({ agent, onClose, onDelete }) => {
+  const [expandedFeatureId, setExpandedFeatureId] = useState(null);
+
+  const handleDelete = () => {
+    if (window.confirm(`Вы уверены, что хотите удалить агента "${agent.name}"?`)) {
+      onDelete();
+      onClose();
+    }
+  };
+
+  const handleRetrain = () => {
+    onClose();
+    onRetrain();
+  };
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
@@ -27,21 +43,30 @@ const AgentDetailsModal = ({ agent, onClose }) => {
                 </li>
                 <li className="flex justify-between">
                   <span className="text-gray-600">Тип модели:</span>
-                  <span className="font-medium">{agent.model_type}</span>
+                  <span className="font-medium">{agent.type}</span>
                 </li>
                 <li className="flex justify-between">
-                  <span className="text-gray-600">Статус:</span>
-                  <span className={`font-medium ${
-                    agent.status === 'active' ? 'text-green-600' : 
-                    agent.status === 'training' ? 'text-yellow-600' : 
-                    'text-red-600'
-                  }`}>
-                    {agent.status}
-                  </span>
+                  <span className="text-gray-600">Версия:</span>
+                  <span className="font-medium">{agent.version}</span>
+                </li>
+                <li className="flex justify-between">
+                  <p className="text-gray-500">Статус</p>
+                    <div className="flex items-center mt-1">
+                      {agent.status === "train" ? (
+                        <div className="animate-spin h-4 w-4 border-t-2 border-blue-500 rounded-full mr-2"></div>
+                      ) : agent.status === "open" ? (
+                        <FaCheckCircle className="text-green-500 mr-2" />
+                      ) : (
+                        <FaExclamationTriangle className="text-red-500 mr-2" />
+                      )}
+                      <span className="font-medium capitalize">
+                        {agent.status}
+                      </span>
+                    </div>
                 </li>
                 <li className="flex justify-between">
                   <span className="text-gray-600">Создан:</span>
-                  <span className="font-medium">{new Date(agent.created_at).toLocaleString()}</span>
+                  <span className="font-medium">{new Date(agent.created).toLocaleString()}</span>
                 </li>
               </ul>
             </div>
@@ -75,17 +100,60 @@ const AgentDetailsModal = ({ agent, onClose }) => {
             </div>
           </div>
           
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <h4 className="text-sm font-medium text-gray-500 mb-2">Используемые фичи</h4>
             <div className="flex flex-wrap gap-2">
-              {agent.features?.map((feature, index) => (
-                <span 
-                  key={index} 
-                  className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded"
-                >
-                  {feature}
-                </span>
+              {agent.features?.map((feature) => (
+                // <span 
+                //   key={feature.id} 
+                //   className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded"
+                // >
+                //   {feature.name}
+                // </span>
+                <div 
+                  key={feature.id} 
+                  className="bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => setExpandedFeatureId(expandedFeatureId === feature.id ? null : feature.id)}
+                ></div>
               ))}
+            </div>
+          </div> */}
+          <div className="mt-6">
+            <h4 className="text-md font-medium text-gray-700 mb-2">Используемые фичи</h4>
+            <div className="space-y-2">
+              {agent.features && agent.features.length > 0 ? (
+                agent.features.map(feature => (
+                  <div 
+                    key={feature.id} 
+                    className="bg-gray-50 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => setExpandedFeatureId(expandedFeatureId === feature.id ? null : feature.id)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <p className="font-medium">{feature.name}</p>
+                      <svg 
+                        className={`w-4 h-4 transform transition-transform ${expandedFeatureId === feature.id ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    
+                    {expandedFeatureId === feature.id && (
+                      <div className="mt-2 pl-4 border-l-2 border-blue-200">
+                        {Object.entries(feature.parameters).map(([key, value]) => (
+                          <p key={key} className="text-sm text-gray-600">
+                            <span className="font-medium">{key}:</span> {value}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 italic">Нет информации о фичах</p>
+              )}
             </div>
           </div>
           
@@ -103,6 +171,13 @@ const AgentDetailsModal = ({ agent, onClose }) => {
             >
               Закрыть
             </button>
+            <button 
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Удалить
+            </button>
+
             <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
               Переобучить
             </button>

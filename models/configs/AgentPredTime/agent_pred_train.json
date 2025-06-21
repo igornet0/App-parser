@@ -23,11 +23,10 @@
                 "MACD": {"fast": "?", "slow": "?", "signal": "?"},
                 "STOCHASTIC_OSCILLATOR": {"period": "?", "smoothing": "?"},
                 "OBV": {},
-                "MFI": {"period": "?"},
-                "CRV": {"period": "?", "trading_days": 362880}
+                "MFI": {"period": "?"}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "5m",
             "discription": "Agent for predicting the next token in a sequence.",
 
@@ -62,7 +61,7 @@
                 "CRV": {"period": "?", "trading_days": 362880}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "15m",
             "discription": "Agent for predicting the next token in a sequence.",
 
@@ -93,7 +92,7 @@
                 "CRV": {"period": "?", "trading_days": 362880}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "30m",
             "discription": "Agent for predicting the next token in a sequence.",
 
@@ -124,7 +123,7 @@
                 "CRV": {"period": "?", "trading_days": 6048}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "1H",
             "discription": "Agent for predicting the next token in a sequence.",
 
@@ -155,7 +154,7 @@
                 "CRV": {"period": "?", "trading_days": 6048}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "4H",
             "discription": "Agent for predicting the next token in a sequence.",
 
@@ -186,7 +185,7 @@
                 "CRV": {"period": "?", "trading_days": 6048}
             },
 
-            "type": "AgentPReadTime",
+            "type": "AgentPredTime",
             "timetravel": "1D",
             "discription": "Agent for predicting the next token in a sequence.",
 

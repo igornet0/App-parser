@@ -22,6 +22,7 @@ class CoinResponse(BaseModel):
     id: int
     name: str
     price_now: float
+    price_change_percentage_24h: float
 
 
 class CoinResponseData(BaseModel):

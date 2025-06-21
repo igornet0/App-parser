@@ -1,5 +1,5 @@
 # %%
-from core import data_manager, settings
+from core import data_helper, settings
 from core.utils import setup_logging
 from backend.Dataset import DatasetTimeseries
 
@@ -9,8 +9,8 @@ setup_logging()
 
 coins = {}
 
-for coin in data_manager.coin_list:
-    for path in data_manager.get_path(data_type="processed",
+for coin in data_helper.coin_list:
+    for path in data_helper.get_path(data_type="processed",
                                       coin=coin,
                                       timetravel="5m"):
         coins.setdefault(coin, [])
@@ -64,11 +64,11 @@ for coin, dts in coins_dt.items():
 # %%
 coins_loader = {}
 
-times = {"5m": 180, "15m": 50, "30m": 25, "1H": 12, "4H": 6, "1D": 7}
+times = {"5m": 300, "15m": 250, "30m": 200, "1H": 150, "4H": 20, "1D": 7}
 
 def filter_func(x):
     if x["open"] != "x" and isinstance(x["open"], str):
-        print(x)
+        print("ERROR !!!!!! - ", x)
         return True
     return x["open"] != "x"
 
@@ -82,7 +82,6 @@ for coin, dt_clear in coins_dt.items():
 
         coins_loader.setdefault(coin, {})
         coins_loader[coin][time] = loader_time_line
-
 
 # %%
 #LAst data 
@@ -108,13 +107,13 @@ from torch.amp import autocast, GradScaler
 from tqdm import tqdm
 from accelerate import Accelerator
 
-agent_type = "agent_pred_train_2"
+model_name = "agent_pred_train_2"
+agent_type = "AgentPredTime"
 
-loader_train = Loader(agent_type)
+loader_train = Loader(agent_type, model_name)
 agent_manager = loader_train.load_model(count_agents=30)
-
 # %%
-config_train = data_manager.get_model_config(agent_type)
+config_train = data_helper.get_model_config(agent_type, model_name)
         
 # Конфигурация обучения
 epochs = config_train["epochs"]
@@ -152,7 +151,8 @@ print("batch_size:", batch_size)
 loader_time = []
 for coin, time_dt in coins_loader.items():
     # if coin not in ["BTC", "TON", "SOL", "XRP", "BNB", "XMR", "ETH"]:
-    # if coin not in ["BTC"]:
+    #     continue
+    # if coin not in ["BTC", "TON"]:
     #     continue
     loader_time.append(time_dt["5m"])
 

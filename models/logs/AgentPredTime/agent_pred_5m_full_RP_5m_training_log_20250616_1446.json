@@ -1,0 +1,46 @@
+{
+  "epochs_trained": 1,
+  "name": "agent_pred_5m_full_RP",
+  "timetravel": "5m",
+  "data_normalize": true,
+  "loss_history": [
+    0.032052721404762945
+  ],
+  "best_loss": 0.032052721404762945,
+  "indecaters": {
+    "SMA": {
+      "period": 20,
+      "column": "min"
+    },
+    "BOLLINGER": {
+      "period": 16,
+      "num_std": 25
+    },
+    "VWAP": {},
+    "RSI": {
+      "period": 32
+    },
+    "OBV": {}
+  },
+  "datetime_format": "%m-%d %H:%M %w",
+  "input_features": [
+    "close",
+    "max",
+    "min",
+    "volume"
+  ],
+  "seq_len": 50,
+  "pred_len": 20,
+  "d_model": 256,
+  "n_heads": 8,
+  "emb_month_size": 8,
+  "emb_weekday_size": 4,
+  "lstm_hidden": 256,
+  "num_layers": 2,
+  "dropout": 0.4,
+  "hyperparams": {
+    "base_lr": 1e-05,
+    "batch_size": 100,
+    "weight_decay": 0.0001
+  }
+}

@@ -22,8 +22,11 @@ class RunConfig(BaseSettings):
     model_config = SettingsConfigDict(**AppBaseConfig.__dict__, env_prefix="RUN__")
     
     host: str = Field(default="localhost")
-    port: int = Field(8000)
+    port: int = Field(default=8000)
     reload: bool = Field(default=False)
+
+    celery_broker_url: str = Field(...)
+    celery_result_backend: str = Field(...)
 
     frontend_host: str = Field(default="localhost")
     frontend_port: int = Field(default=5173)
@@ -80,6 +83,16 @@ class DatabaseConfig(BaseSettings):
         return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host_alt}:{self.port}/{self.db_name}"
 
 
+class RabbitMQConfig(BaseSettings):
+
+    model_config = SettingsConfigDict(**AppBaseConfig.__dict__, 
+                                      env_prefix="RABBITMQ__")
+    
+    host: str = Field(default="localhost")
+    port: int = Field(default=5672)
+    user: str = Field(default="guest")
+    password: str = Field(default="guest")
+
 class SecurityCongig(BaseSettings):
     model_config = SettingsConfigDict(**AppBaseConfig.__dict__, 
                                       env_prefix="SECURITY__")
@@ -108,6 +121,7 @@ class Config(BaseSettings):
 
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     db: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    rbmq: RabbitMQConfig = Field(default_factory=RabbitMQConfig)
     run: RunConfig = Field(default_factory=RunConfig)
 
 settings = Config()

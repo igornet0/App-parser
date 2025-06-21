@@ -29,24 +29,58 @@ export const get_coin_time_line = async (coinsDataTimeLine) => {
   return response.data;
 };
 
-// export const login = async (credentials) => {
-//   const data = new URLSearchParams();
-//   data.append('username', credentials.username);
-//   data.append('password', credentials.password);
-//   data.append('grant_type', 'password');
+export const get_agents = async (status=null) => {
   
-//   const response = await api.post('/auth/login_user/', data, {
-//     headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-//   });
+  const response = await api.get('/api_db_agent/agents/', {
+    params: {
+      status: status
+    }
+  });
+
+  if (response.status !== 200) throw new Error('Ошибка загрузки агентов');
+
+  return response.data;
+};
+
+export const get_agent_types = async () => {
+  const response = await api.get('/api_db_agent/agents_types/');
+
+  if (response.status !== 200) throw new Error('Ошибка загрузки агентов');
+
+  return response.data;
+}
+
+export const get_available_features = async () => {
+  const response = await api.get('/api_db_agent/available_features/');
+
+  if (response.status !== 200) throw new Error('Ошибка загрузки агентов');
+
+  return response.data;
+}
+
+export const train_new_agent = async (agentData) => {
+  console.log(agentData);
+  const response = await api.post('/api_db_agent/train_new_agent/', agentData,{
+          headers: {
+            'accept': 'application/json',
+            // 'Authorization': `Bearer ${localStorage.getItem('access_token')}` ,
+            'Content-Type': 'application/json'
+          }
+      });
   
-//   return response.data.access_token;
-// };
+  if (response.status !== 200) throw new Error('Ошибка обучения агента');
 
-// export const getCurrentUser = async () => {
-//   const response = await api.get('auth/user/me/');
-//   return response.data;
-// };
+  return response.data;
+}
 
-// export const logout = () => {
-//   localStorage.removeItem('access_token');
-// };
+export const delete_agent = async (agentId) => {
+  const response = await api.post(`/api_db_agent/delete_agent/${agentId}/`, {
+    headers: {
+      // 'accept': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      // 'Content-Type': 'application/json'
+    }
+  });
+  if (response.status !== 200) throw new Error('Ошибка удаления агента');
+  return response.data;
+}
